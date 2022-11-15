@@ -11,6 +11,7 @@ namespace ClientProj
         static void Main()
         {
             Console.WriteLine("Client");
+            Console.ReadLine();
         }
     }
 }

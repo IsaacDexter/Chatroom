@@ -35,7 +35,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <StartupObject>ClientProj.Program</StartupObject></StartupObject>
+    <StartupObject>ClientProj.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
