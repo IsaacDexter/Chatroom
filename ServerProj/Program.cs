@@ -10,6 +10,7 @@ namespace ServerProj
     {
         static void Main(string[] args)
         {
+            Console.WriteLine("Server");
         }
     }
 }
