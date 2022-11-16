@@ -119,6 +119,8 @@ namespace ServerProj
                 // Start the client method in a new thread, allowing the server to service multiple clients
                 Thread clientThread = new Thread(() => { ClientMethod(index); });
                 clientThread.Start();
+
+                Broadcast("Client " + index + " has connected.");
             }
         }
 
@@ -154,6 +156,19 @@ namespace ServerProj
             // Close the client, and remove it from the dictionary
             client.Close();
             m_clients.TryRemove(index, out client);
+        }
+
+        /// <summary>
+        /// Sends a message to every connected client
+        /// </summary>
+        /// <param name="message">The message to be broadcast</param>
+        public void Broadcast(string message)
+        {
+            // For each client...
+            for (int i = 0; i < m_clients.Count; i++)
+            {
+                m_clients[i].Send(message);
+            }
         }
 
         private string GetReturnMessage(string code)
