@@ -15,7 +15,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace CNAWeek5_WPF
+namespace ClientProj
 {
     public class Message
     {
@@ -46,13 +46,13 @@ namespace CNAWeek5_WPF
         }
     }
 
-    public class Client
+    public class ConnectedClient
     {
         private int m_id;
         private string m_name;
         private IPAddress m_ip;
 
-        public Client(int id, string name, IPAddress ip)
+        public ConnectedClient(int id, string name, IPAddress ip)
         {
             m_id = id;
             m_name = name;
@@ -81,7 +81,7 @@ namespace CNAWeek5_WPF
 
     public class DataObject
     {
-        private List<Client> m_clients;
+        private List<ConnectedClient> m_clients;
         private List<Message> m_messages;
 
         public IList<string> p_clients { get; set; }
@@ -90,7 +90,7 @@ namespace CNAWeek5_WPF
         public IList<string> p_chat { get; set; }
         public IList<string> p_messages { get; set; }
 
-        public DataObject(List<Client> clients, List<Message> messages)
+        public DataObject(List<ConnectedClient> clients, List<Message> messages)
         {
             m_clients = clients;
             m_messages = messages;
@@ -142,7 +142,7 @@ namespace CNAWeek5_WPF
         }
 
         /// <param name="oneself">The client to remove from p_allList</param>
-        public void RemoveSelf(Client oneself)
+        public void RemoveSelf(ConnectedClient oneself)
         {
             p_recipients.RemoveAt(oneself.GetID() + 1);
         }
@@ -153,13 +153,15 @@ namespace CNAWeek5_WPF
     /// </summary>
     public partial class MainWindow : Window
     {
-        private Client m_client;
-        private List<Client> m_clients;
+        private ConnectedClient m_client;
+        private List<ConnectedClient> m_clients;
         private List<Message> m_messages;
 
         private int m_port;
         private IPAddress m_ip;
         private bool m_server;
+
+        private Client client;
 
         private DataObject m_dataContext;
 
@@ -196,7 +198,7 @@ namespace CNAWeek5_WPF
                 nickname = "Client " + m_client.GetID();
             }
             //Prevents dupilcate nicknames from being entered
-            foreach (Client client in m_clients)
+            foreach (ConnectedClient client in m_clients)
             {
                 if (client.GetName() == nickname)
                 {
@@ -211,7 +213,7 @@ namespace CNAWeek5_WPF
         /// <summary>
         /// Sends a challenge from challenger to challengee. The game is nonfunctional and this code is dummy
         /// </summary>
-        private void SendChallenge(Client challenger, Client challengee)
+        private void SendChallenge(ConnectedClient challenger, ConnectedClient challengee)
         {
             //Add game functionality later
             Message challenge = new Message(challenger.GetName(), challengee.GetName(), "I challenge you!");
@@ -226,7 +228,7 @@ namespace CNAWeek5_WPF
         public MainWindow()
         {
             //Code is temporary and will be phased out with the introduction of the server
-            m_clients = new List<Client>();
+            m_clients = new List<ConnectedClient>();
             m_messages = new List<Message>();
 
             //Set up Client technical information
@@ -236,7 +238,7 @@ namespace CNAWeek5_WPF
 
             //Set up Client display information
             int id = m_clients.Count();
-            m_clients.Add(new Client(id, "Client " + id, m_ip));
+            m_clients.Add(new ConnectedClient(id, "Client " + id, m_ip));
             m_client = m_clients[id];
 
             //Pass the m_clients list to the displayed data class, which will use it to polpulate a list of strings of all clients names
@@ -257,6 +259,19 @@ namespace CNAWeek5_WPF
             IPBox.TextChanged += IPBox_TextChanged;
             PortBox.TextChanged += PortBox_TextChanged;
             StartGameButton.Click += StartGameButton_Click;
+
+            client = new Client();
+
+            // Check to see if the client can connect to the network. If so...
+            if (client.Connect(m_ip, m_port))
+            {
+                // Run the client. Otherwise...
+                client.Run();
+            }
+            else
+            {
+                Console.WriteLine("Failed to connect to the server");
+            }
         }
 
 
@@ -266,7 +281,7 @@ namespace CNAWeek5_WPF
         private void StartGameButton_Click(object sender, RoutedEventArgs e)
         {
             //Find the client selected in OpponentBox and send a challenge
-            foreach (Client client in m_clients)
+            foreach (ConnectedClient client in m_clients)
             {
                 if (client.GetName() == OpponentBox.Text)
                 {

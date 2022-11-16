@@ -101,28 +101,4 @@ namespace ClientProj
             m_writer.Flush();
         }
     }
-    internal class Program
-    {
-        /// <summary>
-        /// Create a new instance of the client and connect it to the network
-        /// </summary>
-        static void Main()
-        {
-            Console.WriteLine("Client");
-
-            Client client = new Client();
-            // Check to see if the client can connect to the network. If so...
-            if (client.Connect(IPAddress.Parse("127.0.0.1"), 4444))
-            {
-                // Run the client. Otherwise...
-                client.Run();
-            }
-            else
-            {
-                Console.WriteLine("Failed to connect to the server");
-            }
-            
-            Console.ReadLine();
-        }
-    }
 }
