@@ -97,6 +97,11 @@ namespace ServerProj
                 m_writer.Flush();
             }
         }
+
+        public void UpdateName(string name)
+        {
+            m_name = name;
+        }
     }
     public class Server
     {
@@ -183,7 +188,7 @@ namespace ServerProj
             while((recievedMessage = client.Read()) != null)
             {
                 // pass the recieved message into to GetReturnMessage() which will return a new string that shall be the servers repsonse.
-                client.Send(GetReturnMessage(recievedMessage.GetMessage()));
+                client.Send(GetReturnMessage(recievedMessage));
                 Console.WriteLine("Message Recieved: " + recievedMessage.GetMessage());
             }
 
@@ -205,12 +210,21 @@ namespace ServerProj
             }
         }
 
-        private string GetReturnMessage(string code)
+        private string GetReturnMessage(Message message)
         {
-            if (code == "exit")
+            //Handle server operations. In server operations, the sender is always the id.
+            if (message.GetRecipient() == "Server")
             {
+                // User has updated their nickname
+                if (message.GetMessage().Contains("nick="))
+                {
+                    string nickname = message.GetMessage().Substring(message.GetMessage().IndexOf('=')+1);
+                    m_clients[int.Parse(message.GetSender())].UpdateName(nickname);
+                    return "Your nickname has been set to " + nickname;
+                }
                 return "Exiting...";
             }
+            //handle messages
             return "thog dont caare";
         }
     }
