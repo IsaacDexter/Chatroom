@@ -181,7 +181,7 @@ namespace ClientProj
         /// <param name="message"></param>
         private void SendMessage(Message message)
         {
-            client.SendMessage(message.GetMessage());
+            client.SendMessage(message.GetSender() + '\n' + message.GetRecipient() + '\n'+ message.GetMessage());
             
         }
 
@@ -191,8 +191,8 @@ namespace ClientProj
         /// <param name="nickname"></param>
         private void SetNickname(string nickname)
         {
-            //Prevents a blank nickname from being entered
-            if (nickname == "")
+            //Prevents a blank or special nickname from being entered
+            if (nickname == ""  || nickname == "Server")
             {
                 nickname = "Client " + m_client.GetID();
             }
@@ -205,6 +205,11 @@ namespace ClientProj
                 }
             }
             m_client.SetName(nickname);
+
+            //Update the server nickname of this player
+            SendMessage(new Message(m_client.GetID().ToString(), "Server", "nick=" + nickname));
+
+            //Update the clients list
             m_dataContext.UpdateClients();
             RefreshDataContext();
         }
@@ -341,7 +346,7 @@ namespace ClientProj
         }
 
         /// <summary>
-        /// Send a message to the chat box when the player hits send, acording to the contents of recepient box
+        /// Send a message to the chat box when the player hits send, acording to the contents of recipient box
         /// </summary>
         private void SendButton_Click(object sender, RoutedEventArgs e)
         {

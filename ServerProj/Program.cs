@@ -11,6 +11,35 @@ using System.Net.Sockets;
 
 namespace ServerProj
 {
+    public class Message
+    {
+        private string m_sender;
+        private string m_recipient;
+        private string m_message;
+
+        public Message(string sender, string recipient, string message)
+        {
+            m_sender = sender;
+            m_recipient = recipient;
+            m_message = message;
+        }
+
+        public string GetSender()
+        {
+            return m_sender;
+        }
+
+        public string GetRecipient()
+        {
+            return m_recipient;
+        }
+
+        public string GetMessage()
+        {
+            return m_message;
+        }
+    }
+
     public class ConnectedClient
     {
         private Socket m_socket;
@@ -19,6 +48,8 @@ namespace ServerProj
         private StreamWriter m_writer;
         private object m_readLock;
         private object m_writeLock;
+
+        private string m_name;
 
         public ConnectedClient(Socket socket)
         {
@@ -32,8 +63,8 @@ namespace ServerProj
             // Set up the reader and writer using the stream and UTF8 encoding
             m_reader = new StreamReader(m_stream, Encoding.UTF8);
             m_writer = new StreamWriter(m_stream, Encoding.UTF8);
-
-
+            // Give the user a blank name to be set
+            m_name = "";
         }
 
         public void Close()
@@ -44,13 +75,15 @@ namespace ServerProj
             m_socket.Close();
         }
 
-        public string Read()
+        public Message Read()
         {
             // Create a lock using m_readLock
             lock (m_readLock)
             {
-                // Return the value from StreamReader.Readline()
-                return m_reader.ReadLine();
+                string sender = m_reader.ReadLine();
+                string recipient = m_reader.ReadLine();
+                string message = m_reader.ReadLine();
+                return new Message(sender, recipient, message);
             }
         }
 
@@ -138,7 +171,7 @@ namespace ServerProj
         /// <param name="socket"></param>
         private void ClientMethod(int index)
         {
-            string recievedMessage;
+            Message recievedMessage;
 
             ConnectedClient client = m_clients[index];
 
@@ -150,8 +183,8 @@ namespace ServerProj
             while((recievedMessage = client.Read()) != null)
             {
                 // pass the recieved message into to GetReturnMessage() which will return a new string that shall be the servers repsonse.
-                client.Send(GetReturnMessage(recievedMessage));
-                Console.WriteLine("Message Recieved: " + recievedMessage);
+                client.Send(GetReturnMessage(recievedMessage.GetMessage()));
+                Console.WriteLine("Message Recieved: " + recievedMessage.GetMessage());
             }
 
             // Close the client, and remove it from the dictionary
