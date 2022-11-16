@@ -17,8 +17,8 @@ namespace ClientProj
     {
         private TcpClient m_tcpClient;
         private NetworkStream m_stream;
-        private StreamWriter m_writer;
         private StreamReader m_reader;
+        private StreamWriter m_writer;
         public Client()
         {
             //Create a new instance of TcpClient
@@ -40,8 +40,8 @@ namespace ClientProj
                 // Set the network stream
                 m_stream = m_tcpClient.GetStream();
                 // Create stream reader and writer using the networkStream, and utf8 encoding
-                m_writer = new StreamWriter(m_stream, Encoding.UTF8);
                 m_reader = new StreamReader(m_stream, Encoding.UTF8);
+                m_writer = new StreamWriter(m_stream, Encoding.UTF8);
                 return true;
             }
             catch(Exception e)
