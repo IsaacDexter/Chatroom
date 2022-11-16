@@ -54,13 +54,13 @@ namespace ClientProj
         public void Run()
         {
             string userInput;
-            ProcessServerResponse();
+            // Create a thread that will process server response and start it
+            Thread readThread = new Thread(() => { ProcessServerResponse(); });
+            readThread.Start();
+
             while ((userInput = Console.ReadLine()) != null)
             {
-                // Write user input to the server and flush it
-                m_writer.WriteLine(userInput);
-                m_writer.Flush();
-                ProcessServerResponse();
+                SendMessage(userInput);
                 // Check to see if the user input is equal to the exit condition used in the server...
                 if (userInput == "exit")
                 {
@@ -77,8 +77,28 @@ namespace ClientProj
         /// </summary>
         private void ProcessServerResponse()
         {
-            //Don't forget that readline is a blocking method, the client could get stuck here if nothing is sent from the server.
-            Console.WriteLine("Server says: " + m_reader.ReadLine());
+            // While the client is connected...
+            while (m_tcpClient.Connected)
+            {
+                try
+                {
+                    // Write the messages to the console
+                    // Don't forget that readline is a blocking method, the client could get stuck here if nothing is sent from the server.
+                    Console.WriteLine("Server says: " + m_reader.ReadLine());
+                }
+                catch (Exception)
+                {
+                    //Avoids disrupting a blocking call whten the connection is closed down
+                    break;
+                }
+            }
+        }
+
+        public void SendMessage(string message)
+        {
+            // Write message to the server and flush it
+            m_writer.WriteLine(message);
+            m_writer.Flush();
         }
     }
     internal class Program
