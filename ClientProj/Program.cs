@@ -56,7 +56,7 @@ namespace ClientProj
         public void Run()
         {
             // Create the instance of main window
-            m_mainWindow = new MainWindow();
+            m_mainWindow = new MainWindow(this);
 
             string userInput;
             // Create a thread that will process server response and start it
@@ -66,16 +66,16 @@ namespace ClientProj
             // Call show dialogue on the form class
             m_mainWindow.ShowDialog();
 
-            while ((userInput = Console.ReadLine()) != null)
-            {
-                SendMessage(userInput);
-                // Check to see if the user input is equal to the exit condition used in the server...
-                if (userInput == "exit")
-                {
-                    // ...If it is, break out of the while loop
-                    break;
-                }
-            }
+            //while ((userInput = Console.ReadLine()) != null)
+            //{
+            //    SendMessage(userInput);
+            //    // Check to see if the user input is equal to the exit condition used in the server...
+            //    if (userInput == "exit")
+            //    {
+            //        // ...If it is, break out of the while loop
+            //        break;
+            //    }
+            //}
             // Close the TcpClient
             m_tcpClient.Close();
         }
@@ -88,17 +88,11 @@ namespace ClientProj
             // While the client is connected...
             while (m_tcpClient.Connected)
             {
-                try
-                {
-                    // Write the messages to the console
-                    // Don't forget that readline is a blocking method, the client could get stuck here if nothing is sent from the server.
-                    Console.WriteLine("Server says: " + m_reader.ReadLine());
-                }
-                catch (Exception)
-                {
-                    //Avoids disrupting a blocking call whten the connection is closed down
-                    break;
-                }
+                // Write the messages to the console
+                // Don't forget that readline is a blocking method, the client could get stuck here if nothing is sent from the server.
+                string message = m_reader.ReadLine();
+                m_mainWindow.RecieveMessage(new Message("Server", "All", message));
+                Console.WriteLine("Server says: " + message);
             }
         }
 

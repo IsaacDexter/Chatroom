@@ -151,6 +151,7 @@ namespace ServerProj
             {
                 // pass the recieved message into to GetReturnMessage() which will return a new string that shall be the servers repsonse.
                 client.Send(GetReturnMessage(recievedMessage));
+                Console.WriteLine("Message Recieved: " + recievedMessage);
             }
 
             // Close the client, and remove it from the dictionary

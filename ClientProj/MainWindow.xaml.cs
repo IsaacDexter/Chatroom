@@ -171,8 +171,8 @@ namespace ClientProj
 
         private void RefreshDataContext()
         {
-            DataContext = null;
-            DataContext = m_dataContext;
+            //DataContext = null;
+            //DataContext = m_dataContext;
         }
 
         /// <summary>
@@ -181,9 +181,8 @@ namespace ClientProj
         /// <param name="message"></param>
         private void SendMessage(Message message)
         {
-            m_messages.Add(message);
-            m_dataContext.UpdateMessages();
-            RefreshDataContext();
+            client.SendMessage(message.GetMessage());
+            
         }
 
         /// <summary>
@@ -222,10 +221,15 @@ namespace ClientProj
         }
 
 
+        public void RecieveMessage(Message message)
+        {
+            m_messages.Add(message);
+            m_dataContext.UpdateMessages();
+            RefreshDataContext();
+        }
 
 
-
-        public MainWindow()
+        public MainWindow(Client client)
         {
             //Code is temporary and will be phased out with the introduction of the server
             m_clients = new List<ConnectedClient>();
@@ -247,7 +251,7 @@ namespace ClientProj
 
             //Initialise the visual component
             InitializeComponent();
-
+            this.client = client;
             //Update the nickname box to display the default nickname
             NicknameBox.Text = m_client.GetName();
 
@@ -368,12 +372,6 @@ namespace ClientProj
 
             //Add the message to the list of messages, to be outputted to the screen
             SendMessage(message);
-        }
-
-        [STAThread]
-        static void Main(string[] args)
-        {
-            MainWindow mainWindow = new MainWindow();
         }
     }
 }
