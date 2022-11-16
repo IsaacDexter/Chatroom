@@ -171,8 +171,8 @@ namespace ClientProj
 
         private void RefreshDataContext()
         {
-            //DataContext = null;
-            //DataContext = m_dataContext;
+            DataContext = null;
+            DataContext = m_dataContext;
         }
 
         /// <summary>
@@ -223,9 +223,13 @@ namespace ClientProj
 
         public void RecieveMessage(Message message)
         {
-            m_messages.Add(message);
-            m_dataContext.UpdateMessages();
-            RefreshDataContext();
+            //Invoke will prevent the reading thread calling a UI function, instead allowing the UI to call it when it is safe to do so.
+            ChatList.Dispatcher.Invoke(() =>
+            {
+                m_messages.Add(message);
+                m_dataContext.UpdateMessages();
+                RefreshDataContext();
+            });
         }
 
 
