@@ -19,6 +19,8 @@ namespace ClientProj
         private NetworkStream m_stream;
         private StreamReader m_reader;
         private StreamWriter m_writer;
+
+        private MainWindow m_mainWindow;
         public Client()
         {
             //Create a new instance of TcpClient
@@ -53,10 +55,16 @@ namespace ClientProj
 
         public void Run()
         {
+            // Create the instance of main window
+            m_mainWindow = new MainWindow();
+
             string userInput;
             // Create a thread that will process server response and start it
             Thread readThread = new Thread(() => { ProcessServerResponse(); });
             readThread.Start();
+
+            // Call show dialogue on the form class
+            m_mainWindow.ShowDialog();
 
             while ((userInput = Console.ReadLine()) != null)
             {
@@ -99,6 +107,31 @@ namespace ClientProj
             // Write message to the server and flush it
             m_writer.WriteLine(message);
             m_writer.Flush();
+        }
+    }
+
+    internal class Program
+    {
+        [STAThread]
+        /// <summary>
+        /// Create a new instance of the client and connect it to the network
+        /// </summary>
+        static void Main()
+        {
+            Console.WriteLine("Client");
+            Client client = new Client();
+            // Check to see if the client can connect to the network. If so...
+            if (client.Connect(IPAddress.Parse("127.0.0.1"), 4444))
+            {
+                // Run the client. Otherwise...
+                client.Run();
+            }
+            else
+            {
+                Console.WriteLine("Failed to connect to the server");
+            }
+
+            Console.ReadLine();
         }
     }
 }

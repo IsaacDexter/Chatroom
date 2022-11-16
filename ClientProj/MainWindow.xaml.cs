@@ -259,19 +259,6 @@ namespace ClientProj
             IPBox.TextChanged += IPBox_TextChanged;
             PortBox.TextChanged += PortBox_TextChanged;
             StartGameButton.Click += StartGameButton_Click;
-
-            client = new Client();
-
-            // Check to see if the client can connect to the network. If so...
-            if (client.Connect(m_ip, m_port))
-            {
-                // Run the client. Otherwise...
-                client.Run();
-            }
-            else
-            {
-                Console.WriteLine("Failed to connect to the server");
-            }
         }
 
 
@@ -381,6 +368,12 @@ namespace ClientProj
 
             //Add the message to the list of messages, to be outputted to the screen
             SendMessage(message);
+        }
+
+        [STAThread]
+        static void Main(string[] args)
+        {
+            MainWindow mainWindow = new MainWindow();
         }
     }
 }
