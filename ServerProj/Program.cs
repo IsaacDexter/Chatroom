@@ -55,7 +55,7 @@ namespace ServerProj
 
             // Network stream is used to allow the data to be sent over the network
             NetworkStream stream = new NetworkStream(socket, true);
-            
+
             // Create stream reader and writer using the networkStream, and utf8 encoding
             StreamReader reader = new StreamReader(stream, Encoding.UTF8);
             StreamWriter writer = new StreamWriter(stream, Encoding.UTF8);
@@ -78,9 +78,9 @@ namespace ServerProj
 
         private string GetReturnMessage(string code)
         {
-            if (code == "thog")
+            if (code == "exit")
             {
-                return "thats thogs name dont wear it out";
+                return "Exiting...";
             }
             return "thog dont caare";
         }
@@ -92,14 +92,14 @@ namespace ServerProj
     {
         static void Main(string[] args)
         {
+            Console.WriteLine("Server");
+
             //create a new instance of the Server using the IP Address 127.0.0.1 (this is a loopback address so that we can run the connection on our local machines) and use the port 4444
             Server server = new Server(IPAddress.Parse("127.0.0.1"), 4444);
             //Start and stop the server
             server.Start();
             server.Stop();
 
-
-            Console.WriteLine("Server");
             Console.ReadLine();
         }
     }
