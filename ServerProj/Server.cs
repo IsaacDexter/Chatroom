@@ -6,46 +6,20 @@ using System.Text;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Net;
 using System.Net.Sockets;
+using PacketsProj;
 
 namespace ServerProj
 {
-    public class Message
-    {
-        private string m_sender;
-        private string m_recipient;
-        private string m_message;
-
-        public Message(string sender, string recipient, string message)
-        {
-            m_sender = sender;
-            m_recipient = recipient;
-            m_message = message;
-        }
-
-        public string GetSender()
-        {
-            return m_sender;
-        }
-
-        public string GetRecipient()
-        {
-            return m_recipient;
-        }
-
-        public string GetMessage()
-        {
-            return m_message;
-        }
-    }
-
     public class ConnectedClient
     {
         private Socket m_socket;
         private NetworkStream m_stream;
-        private StreamReader m_reader;
-        private StreamWriter m_writer;
+        private BinaryReader m_reader;
+        private BinaryWriter m_writer;
+        private BinaryFormatter m_formatter;
         private object m_readLock;
         private object m_writeLock;
 
@@ -60,11 +34,13 @@ namespace ServerProj
             m_socket = socket;
             // Set up the stream using the socket
             m_stream = new NetworkStream(socket, true);
-            // Set up the reader and writer using the stream and UTF8 encoding
-            m_reader = new StreamReader(m_stream, Encoding.UTF8);
-            m_writer = new StreamWriter(m_stream, Encoding.UTF8);
+            // Set up the binary reader and writer using the stream and UTF8 encoding
+            m_reader = new BinaryReader(m_stream, Encoding.UTF8);
+            m_writer = new BinaryWriter(m_stream, Encoding.UTF8);
             // Give the user a blank name to be set
             m_name = "";
+            // Initialise the binary formatter
+            m_formatter = new BinaryFormatter();
         }
 
         public void Close()
@@ -75,25 +51,44 @@ namespace ServerProj
             m_socket.Close();
         }
 
-        public Message Read()
+        public Packet Read()
         {
             // Create a lock using m_readLock
             lock (m_readLock)
             {
-                string sender = m_reader.ReadLine();
-                string recipient = m_reader.ReadLine();
-                string message = m_reader.ReadLine();
-                return new Message(sender, recipient, message);
+                // Check the size of the array is not -1 and store it to an int
+                int numberOfBytes;
+                if ((numberOfBytes = m_reader.ReadInt32()) != -1)
+                {
+                    // Use the number of bytes to read the correct number of bytes and store in the buffer
+                    byte[] buffer = m_reader.ReadBytes(numberOfBytes);
+                    // Create a new memory stream and pass the byte array into the constructor
+                    MemoryStream memoryStream = new MemoryStream(buffer);
+                    // use the formatter to deserialise the data in the memory stream, cast it to a packet and return it.
+                    return m_formatter.Deserialize(memoryStream) as Packet;
+                }
             }
+            return null;
         }
 
-        public void Send(string message)
+        /// <summary>Sends binary data that is generated from a serialised packet</summary>
+        /// <param name="message">a serialised packet of a PacketType, determined in the enum</param>
+        public void Send(Packet message)
         {
             // Create a lock using m_writeLock
             lock (m_writeLock)
             {
-                // Write the message string to the writer and flush.
-                m_writer.WriteLine(message);
+                // Create a new memory stream object used to store binary data.
+                MemoryStream memoryStream = new MemoryStream();
+                // Use the binary formatter to serialise message, and store this into the memory stream
+                m_formatter.Serialize(memoryStream, message);
+                // Get the byte array from the memory stream and store into buffer
+                byte[] buffer = memoryStream.GetBuffer();
+                // Write the length of this array to m_writer, so the size can be checked on the recieving end
+                m_writer.Write(buffer.Length);
+                // Write the buffer to m_writer
+                m_writer.Write(buffer);
+                // Flush the writer
                 m_writer.Flush();
             }
         }
@@ -176,22 +171,36 @@ namespace ServerProj
         /// <param name="socket"></param>
         private void ClientMethod(int index)
         {
-            Message recievedMessage;
+            Packet recievedMessage;
 
             ConnectedClient client = m_clients[index];
 
             // Send a welcome message to the client.
-            client.Send("Connected.");
+            //client.Send("Connected.");
 
             // Create a read / write loop to allow the client and server to have a back and forth conversation
             // Thread will pause here until readline recieves data as it is a blocking call
             while((recievedMessage = client.Read()) != null)
             {
-                // pass the recieved message into to GetReturnMessage() which will return a new string that shall be the servers repsonse.
-                client.Send(GetReturnMessage(recievedMessage));
-                Console.WriteLine("Message Recieved: " + recievedMessage.GetMessage());
+                // Switch on the type of packet (message type) recieved
+                switch (recievedMessage.m_packetType)
+                {
+                    case PacketType.ChatMessage:
+                        // Cast the chatMessagePacket to be the right type of packet class
+                        ChatMessagePacket chatMessagePacket = (ChatMessagePacket)recievedMessage;
+                        // Pass the recieved message into to GetReturnMessage() which will return a new string that shall be the servers repsonse
+                        // Send the return message as a new chat message packet back to the client
+                        m_clients[index].Send(new ChatMessagePacket(GetReturnMessage(chatMessagePacket.m_message)));
+                        break;
+                    case PacketType.PrivateMessage:
+                        break;
+                    case PacketType.ClientName:
+                        break;
+                    default:
+                        break;
+                }
+                
             }
-
             // Close the client, and remove it from the dictionary
             client.Close();
             m_clients.TryRemove(index, out client);
@@ -206,24 +215,12 @@ namespace ServerProj
             // For each client...
             for (int i = 0; i < m_clients.Count; i++)
             {
-                m_clients[i].Send(message);
+                m_clients[i].Send(new ChatMessagePacket(message));
             }
         }
 
-        private string GetReturnMessage(Message message)
+        private string GetReturnMessage(string message)
         {
-            //Handle server operations. In server operations, the sender is always the id.
-            if (message.GetRecipient() == "Server")
-            {
-                // User has updated their nickname
-                if (message.GetMessage().Contains("nick="))
-                {
-                    string nickname = message.GetMessage().Substring(message.GetMessage().IndexOf('=')+1);
-                    m_clients[int.Parse(message.GetSender())].UpdateName(nickname);
-                    return "Your nickname has been set to " + nickname;
-                }
-                return "Exiting...";
-            }
             //handle messages
             return "thog dont caare";
         }

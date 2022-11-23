@@ -7,6 +7,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.Serialization.Formatters.Binary;
+using PacketsProj;
 
 namespace ClientProj
 {
@@ -17,8 +19,9 @@ namespace ClientProj
     {
         private TcpClient m_tcpClient;
         private NetworkStream m_stream;
-        private StreamReader m_reader;
-        private StreamWriter m_writer;
+        private BinaryReader m_reader;
+        private BinaryWriter m_writer;
+        private BinaryFormatter m_formatter;
 
         private MainWindow m_mainWindow;
         public Client()
@@ -42,8 +45,9 @@ namespace ClientProj
                 // Set the network stream
                 m_stream = m_tcpClient.GetStream();
                 // Create stream reader and writer using the networkStream, and utf8 encoding
-                m_reader = new StreamReader(m_stream, Encoding.UTF8);
-                m_writer = new StreamWriter(m_stream, Encoding.UTF8);
+                m_reader = new BinaryReader(m_stream, Encoding.UTF8);
+                m_writer = new BinaryWriter(m_stream, Encoding.UTF8);
+                m_formatter = new BinaryFormatter();
                 return true;
             }
             catch(Exception e)
@@ -58,7 +62,6 @@ namespace ClientProj
             // Create the instance of main window
             m_mainWindow = new MainWindow(this);
 
-            string userInput;
             // Create a thread that will process server response and start it
             Thread readThread = new Thread(() => { ProcessServerResponse(); });
             readThread.Start();
@@ -66,16 +69,6 @@ namespace ClientProj
             // Call show dialogue on the form class
             m_mainWindow.ShowDialog();
 
-            //while ((userInput = Console.ReadLine()) != null)
-            //{
-            //    SendMessage(userInput);
-            //    // Check to see if the user input is equal to the exit condition used in the server...
-            //    if (userInput == "exit")
-            //    {
-            //        // ...If it is, break out of the while loop
-            //        break;
-            //    }
-            //}
             // Close the TcpClient
             m_tcpClient.Close();
         }
@@ -90,16 +83,53 @@ namespace ClientProj
             {
                 // Write the messages to the console
                 // Don't forget that readline is a blocking method, the client could get stuck here if nothing is sent from the server.
-                string message = m_reader.ReadLine();
-                m_mainWindow.RecieveMessage(new Message("Server", "All", message));
-                Console.WriteLine("Server says: " + message);
+                // Check the size of the array is not -1 and store it to an int
+                int numberOfBytes;
+                if ((numberOfBytes = m_reader.ReadInt32()) != -1)
+                {
+                    // Use the number of bytes to read the correct number of bytes and store in the buffer
+                    byte[] buffer = m_reader.ReadBytes(numberOfBytes);
+                    // Create a new memory stream and pass the byte array into the constructor
+                    MemoryStream memoryStream = new MemoryStream(buffer);
+                    // use the formatter to deserialise the data in the memory stream, cast it to a packet and return it.
+                    Packet message = m_formatter.Deserialize(memoryStream) as Packet;
+                    // Switch on the type of packet (message type) recieved
+                    switch (message.m_packetType)
+                    {
+                        case PacketType.ChatMessage:
+                            // Cast the chatMessagePacket to be the right type of packet class
+                            ChatMessagePacket chatMessagePacket = (ChatMessagePacket)message;
+                            // Output the recieved message to the UI, after having cast it
+                            m_mainWindow.RecieveMessage(new Message("Server", "All", chatMessagePacket.m_message));
+                            //Console.WriteLine("Server says: " + chatMessagePacket.m_message);
+                            break;
+                        case PacketType.PrivateMessage:
+                            break;
+                        case PacketType.ClientName:
+                            break;
+                        default:
+                            break;
+                    }
+                    
+                }
             }
         }
 
         public void SendMessage(string message)
         {
-            // Write message to the server and flush it
-            m_writer.WriteLine(message);
+            // Instanciate a new ChatMessagePacket from the string sent from the UI
+            ChatMessagePacket chatMessagePacket = new ChatMessagePacket(message);
+            // Create a new memory stream object used to store binary data.
+            MemoryStream memoryStream = new MemoryStream();
+            // Use the binary formatter to serialise message, and store this into the memory stream
+            m_formatter.Serialize(memoryStream, chatMessagePacket);
+            // Get the byte array from the memory stream and store into buffer
+            byte[] buffer = memoryStream.GetBuffer();
+            // Write the length of this array to m_writer, so the size can be checked on the recieving end
+            m_writer.Write(buffer.Length);
+            // Write the buffer to m_writer
+            m_writer.Write(buffer);
+            // Flush the writer
             m_writer.Flush();
         }
     }
