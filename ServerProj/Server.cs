@@ -23,7 +23,7 @@ namespace ServerProj
         private object m_readLock;
         private object m_writeLock;
 
-        private string m_name;
+        public string m_name { get; set; }
 
         public ConnectedClient(Socket socket)
         {
@@ -92,11 +92,6 @@ namespace ServerProj
                 m_writer.Flush();
             }
         }
-
-        public void UpdateName(string name)
-        {
-            m_name = name;
-        }
     }
     public class Server
     {
@@ -138,8 +133,17 @@ namespace ServerProj
 
                 // Once the socket has been accepted, create a new instance of the connectedClient class and pass in the socket
                 ConnectedClient client = new ConnectedClient(socket);
-                //Create a new int value set to be the value of the client index. THis has to be done because starting the threads requires passing by reference
+                // Create a new int value set to be the value of the client index. THis has to be done because starting the threads requires passing by reference
                 int index = clientIndex;
+                // Set the clients default name
+                client.m_name = "Client " + clientIndex;
+
+
+
+                // Update each client's client lists to recognise this new client that has joined
+                // For each client...
+                Broadcast(new ClientNamePacket(client.m_name));
+
                 // Increase the client index
                 clientIndex++;
                 // Add the newly connected client into the client dictionary
@@ -153,7 +157,14 @@ namespace ServerProj
                 Thread clientThread = new Thread(() => { ClientMethod(index); });
                 clientThread.Start();
 
-                Broadcast("Client " + index + " has connected.");
+                // Send the client a welcoming message
+                client.Send(new ChatMessagePacket("Welcome!"));
+
+                // Send the client each of the pre-existing clients, including itself.
+                foreach (var connectedClientPair in m_clients)
+                {
+                    client.Send(new ClientNamePacket(connectedClientPair.Value.m_name));
+                }
             }
         }
 
@@ -187,14 +198,20 @@ namespace ServerProj
                 {
                     case PacketType.ChatMessage:
                         // Cast the chatMessagePacket to be the right type of packet class
-                        ChatMessagePacket chatMessagePacket = (ChatMessagePacket)recievedMessage;
+                        ChatMessagePacket chatMessage = (ChatMessagePacket)recievedMessage;
                         // Pass the recieved message into to GetReturnMessage() which will return a new string that shall be the servers repsonse
-                        // Send the return message as a new chat message packet back to the client
-                        m_clients[index].Send(new ChatMessagePacket(GetReturnMessage(chatMessagePacket.m_message)));
+                        // Broadcast the return message as a new chat message packet back to all clients
+                        Broadcast(new ChatMessagePacket(m_clients[index].m_name + " says: " + chatMessage.m_message));
                         break;
                     case PacketType.PrivateMessage:
                         break;
                     case PacketType.ClientName:
+                        // Cast the recieved packet to be the right type of client name packet class
+                        ClientNamePacket clientName = (ClientNamePacket)recievedMessage;
+                        // Send the return message as a client name packet back to each client, with the current name as oldName
+                        Broadcast(new ClientNamePacket(clientName.m_name, m_clients[index].m_name));
+                        // update this clients name on the server
+                        m_clients[index].m_name = clientName.m_name;
                         break;
                     default:
                         break;
@@ -207,22 +224,15 @@ namespace ServerProj
         }
 
         /// <summary>
-        /// Sends a message to every connected client
+        /// Sends a packet to each and every client on the server
         /// </summary>
-        /// <param name="message">The message to be broadcast</param>
-        public void Broadcast(string message)
+        /// <param name="packet">The packet to send</param>
+        public void Broadcast(Packet packet)
         {
-            // For each client...
-            for (int i = 0; i < m_clients.Count; i++)
+            foreach (var connectedClient in m_clients)
             {
-                m_clients[i].Send(new ChatMessagePacket(message));
+                connectedClient.Value.Send(packet);
             }
-        }
-
-        private string GetReturnMessage(string message)
-        {
-            //handle messages
-            return "thog dont caare";
         }
     }
 

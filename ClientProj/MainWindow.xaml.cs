@@ -17,134 +17,20 @@ using System.Windows.Shapes;
 
 namespace ClientProj
 {
-    public class Message
-    {
-        private string m_sender;
-        private string m_recipient;
-        private string m_message;
-
-        public Message(string sender, string recipient, string message)
-        {
-            m_sender = sender;
-            m_recipient = recipient;
-            m_message = message;
-        }
-
-        public string GetSender()
-        {
-            return m_sender;
-        }
-
-        public string GetRecipient()
-        {
-            return m_recipient;
-        }
-
-        public string GetMessage()
-        {
-            return m_message;
-        }
-    }
-
-    public class ConnectedClient
-    {
-        private int m_id;
-        private string m_name;
-        private IPAddress m_ip;
-
-        public ConnectedClient(int id, string name, IPAddress ip)
-        {
-            m_id = id;
-            m_name = name;
-            m_ip = ip;
-        }
-
-        public int GetID()
-        {
-            return m_id;
-        }
-
-        public string GetName()
-        {
-            return m_name;
-        }
-        public void SetName(string name)
-        {
-            this.m_name = name;
-        }
-
-        public void SetIP(IPAddress ip)
-        {
-            this.m_ip = ip;
-        }
-    }
-
     public class DataObject
     {
-        private List<ConnectedClient> m_clients;
-        private List<Message> m_messages;
-
-        public IList<string> p_clients { get; set; }
+        public List<string> p_clients { get; set; }
         //A list used in composite collections to give an all option with messages
-        public IList<string> p_recipients { get; set; }
-        public IList<string> p_chat { get; set; }
-        public IList<string> p_messages { get; set; }
+        public List<string> p_recipients { get; set; }
+        public List<string> p_chat { get; set; }
+        public List<string> p_messages { get; set; }
 
-        public DataObject(List<ConnectedClient> clients, List<Message> messages)
+        public DataObject()
         {
-            m_clients = clients;
-            m_messages = messages;
-
             p_clients = new List<string>();
             p_recipients = new List<string>();
             p_chat = new List<string>();
             p_messages = new List<string>();
-
-            UpdateClients();
-        }
-
-        /// <summary>
-        /// Updates the p_clientsList and p_allList
-        /// </summary>
-        public void UpdateClients()
-        {
-            p_recipients.Clear();
-            p_clients.Clear();
-
-            //Add the client's names to a list displayed in the UI
-            for (int i = 0; i < m_clients.Count(); i++)
-            {
-                p_clients.Add(m_clients[i].GetName());
-                p_recipients.Add(m_clients[i].GetName());
-            }
-
-            //Update the all list, a visual only list that is used in reciept box to also contain an all option
-            p_recipients.Add("All");
-        }
-
-        public void UpdateMessages()
-        {
-            int currentlyPrintedMessagesCount = p_chat.Count() + p_messages.Count();
-            //For each new message...
-            for (int i = currentlyPrintedMessagesCount; i < m_messages.Count(); i++)
-            {
-                //...if the message was for someone specific...
-                if (m_messages[i].GetRecipient() != "All")
-                {
-                    //...output it to that person
-                    //dummy functionality until client/server set up
-                    p_messages.Add(m_messages[i].GetSender() + " whispers to " + m_messages[i].GetRecipient() + ": " + m_messages[i].GetMessage());
-                    return;
-                }
-                //...otherwise, output it to everyone
-                p_chat.Add(m_messages[i].GetSender() + " says: " + m_messages[i].GetMessage());
-            }
-        }
-
-        /// <param name="oneself">The client to remove from p_allList</param>
-        public void RemoveSelf(ConnectedClient oneself)
-        {
-            p_recipients.RemoveAt(oneself.GetID() + 1);
         }
     }
 
@@ -153,15 +39,12 @@ namespace ClientProj
     /// </summary>
     public partial class MainWindow : Window
     {
-        private ConnectedClient m_client;
-        private List<ConnectedClient> m_clients;
-        private List<Message> m_messages;
 
         private int m_port;
         private IPAddress m_ip;
         private bool m_server;
 
-        private Client client;
+        private Client m_client;
 
         private DataObject m_dataContext;
 
@@ -179,9 +62,9 @@ namespace ClientProj
         /// sends the message to the data context and refreshes the context
         /// </summary>
         /// <param name="message"></param>
-        private void SendMessage(Message message)
+        private void SendMessage(string message)
         {
-            client.SendMessage(message.GetSender() + '\n' + message.GetRecipient() + '\n'+ message.GetMessage());
+            m_client.SendMessage(message);
             
         }
 
@@ -191,78 +74,88 @@ namespace ClientProj
         /// <param name="nickname"></param>
         private void SetNickname(string nickname)
         {
-            //Prevents a blank or special nickname from being entered
-            if (nickname == ""  || nickname == "Server")
-            {
-                nickname = "Client " + m_client.GetID();
-            }
-            //Prevents dupilcate nicknames from being entered
-            foreach (ConnectedClient client in m_clients)
-            {
-                if (client.GetName() == nickname)
-                {
-                    nickname = "Client " + m_client.GetID();
-                }
-            }
-            m_client.SetName(nickname);
-
-            //Update the server nickname of this player
-            SendMessage(new Message(m_client.GetID().ToString(), "Server", "nick=" + nickname));
-
-            //Update the clients list
-            m_dataContext.UpdateClients();
-            RefreshDataContext();
+            m_client.SetNickname(nickname);
         }
 
         /// <summary>
         /// Sends a challenge from challenger to challengee. The game is nonfunctional and this code is dummy
         /// </summary>
-        private void SendChallenge(ConnectedClient challenger, ConnectedClient challengee)
+        private void SendChallenge(string challengee)
         {
             //Add game functionality later
-            Message challenge = new Message(challenger.GetName(), challengee.GetName(), "I challenge you!");
+            string challenge = challengee + ", I challenge you!";
             SendMessage(challenge);
             RefreshDataContext();
         }
 
 
-        public void RecieveMessage(Message message)
+        public void DisplayChat(string message)
         {
             //Invoke will prevent the reading thread calling a UI function, instead allowing the UI to call it when it is safe to do so.
             ChatList.Dispatcher.Invoke(() =>
             {
-                m_messages.Add(message);
-                m_dataContext.UpdateMessages();
+                m_dataContext.p_chat.Add(message);
                 RefreshDataContext();
             });
+        }
+
+        /// <summary>
+        /// Calls when a certain client is updated, i.e. has their nickname changed or joined
+        /// </summary>
+        /// <param name="id"></param>
+        public void ClientUpdated(string name, string oldName)
+        {
+            // if the client has not updated their nickname, they have joined
+            if (name == oldName)
+            {
+                // Invoke will prevent the reading thread calling a UI function, instead allowing the UI to call it when it is safe to do so.
+                ClientList.Dispatcher.Invoke(() =>
+                { 
+                    // Add this new client to the clients list
+                    m_dataContext.p_clients.Add(name);
+                    //Refresh the data context so this is reflected in the display
+                    RefreshDataContext();
+                    return;
+                });
+            }
+            else
+            {
+                // otherwise, this is an already existing client updating their nickname
+                // Invoke will prevent the reading thread calling a UI function, instead allowing the UI to call it when it is safe to do so.
+                ClientList.Dispatcher.Invoke(() =>
+                {
+                    // Add this new client to the clients list
+                    // Find the index where the clients old name was
+                    int index = m_dataContext.p_clients.FindIndex(c => c == oldName);
+                    // If the old clients name was indeed in the list...
+                    if (index != -1)
+                    {
+                        // ...Set it to the new one! Otherwise, do nothing, as something is wrong.
+                        m_dataContext.p_clients[index] = name;
+                    }
+                    //Refresh the data context so this is reflected in the display
+                    RefreshDataContext();
+                    return;
+                });
+            }
+            
         }
 
 
         public MainWindow(Client client)
         {
-            //Code is temporary and will be phased out with the introduction of the server
-            m_clients = new List<ConnectedClient>();
-            m_messages = new List<Message>();
-
             //Set up Client technical information
             m_server = false;
             m_ip = IPAddress.Parse("127.0.0.1");
             m_port = 4444;
 
-            //Set up Client display information
-            int id = m_clients.Count();
-            m_clients.Add(new ConnectedClient(id, "Client " + id, m_ip));
-            m_client = m_clients[id];
-
-            //Pass the m_clients list to the displayed data class, which will use it to polpulate a list of strings of all clients names
-            m_dataContext = new DataObject(m_clients, m_messages);
+            //Instanciate the data context from the data object class. This is used in this file to update fields, and in the XAML file as DataContext
+            m_dataContext = new DataObject();
             DataContext = m_dataContext;
 
             //Initialise the visual component
             InitializeComponent();
-            this.client = client;
-            //Update the nickname box to display the default nickname
-            NicknameBox.Text = m_client.GetName();
+            m_client = client;
 
             //define interaction events
             SendButton.Click += SendButton_Click;
@@ -274,23 +167,9 @@ namespace ClientProj
             StartGameButton.Click += StartGameButton_Click;
         }
 
-
-
-
-
         private void StartGameButton_Click(object sender, RoutedEventArgs e)
         {
-            //Find the client selected in OpponentBox and send a challenge
-            foreach (ConnectedClient client in m_clients)
-            {
-                if (client.GetName() == OpponentBox.Text)
-                {
-                    SendChallenge(m_client, client);
-                    return;
-                }
-            }
-            //If the opponent could not be found, output a challenge failed message.
-            Message challenge = new Message(m_client.GetName(), "All", "Challenge failed!");
+            SendChallenge(OpponentBox.Text);
         }
         /// <summary>
         /// When the port box is updated, parse its content as an int and write it to m_port
@@ -317,7 +196,6 @@ namespace ClientProj
             if (validateIp)
             {
                 m_ip = ip;
-                m_client.SetIP(ip);
             }
         }
 
@@ -358,14 +236,6 @@ namespace ClientProj
                 return;
             }
 
-            //if the user has no nickname...
-            if (m_client.GetName() == "")
-            {
-                //...put a warning into the chatlist
-                //ChatList.Items.Add("User has no nickname!");
-                return;
-            }
-
             //if the user has selected no recipient...
             if (RecipientBox.Text == "")
             {
@@ -374,12 +244,12 @@ namespace ClientProj
             }
 
             //store the contents of the message box into message
-            Message message = new Message(m_client.GetName(), RecipientBox.Text, MessageBox.Text);
+            string message = MessageBox.Text;
 
             //leave the message box blank
             MessageBox.Text = "";
 
-            //Add the message to the list of messages, to be outputted to the screen
+            // Send the message to the server
             SendMessage(message);
         }
     }

@@ -98,14 +98,16 @@ namespace ClientProj
                     {
                         case PacketType.ChatMessage:
                             // Cast the chatMessagePacket to be the right type of packet class
-                            ChatMessagePacket chatMessagePacket = (ChatMessagePacket)message;
+                            ChatMessagePacket chatMessage = (ChatMessagePacket)message;
                             // Output the recieved message to the UI, after having cast it
-                            m_mainWindow.RecieveMessage(new Message("Server", "All", chatMessagePacket.m_message));
-                            //Console.WriteLine("Server says: " + chatMessagePacket.m_message);
+                            m_mainWindow.DisplayChat(chatMessage.m_message);
                             break;
                         case PacketType.PrivateMessage:
                             break;
                         case PacketType.ClientName:
+                            // Cast the ClientNamePacket to be the right type of packet class
+                            ClientNamePacket clientName = (ClientNamePacket)message;
+                            m_mainWindow.ClientUpdated(clientName.m_name, clientName.m_oldName);
                             break;
                         default:
                             break;
@@ -113,6 +115,33 @@ namespace ClientProj
                     
                 }
             }
+        }
+
+        public void SetNickname(string nickname)
+        {
+            ////Prevents dupilcate nicknames from being entered
+            //foreach (ConnectedClient client in m_clients)
+            //{
+            //    if (client.GetName() == nickname)
+            //    {
+            //        nickname = "Client " + m_client.GetID();
+            //    }
+            //}
+
+            // Instanciate a new ChatMessagePacket from the string sent from the UI
+            ClientNamePacket clientName = new ClientNamePacket(nickname);
+            // Create a new memory stream object used to store binary data.
+            MemoryStream memoryStream = new MemoryStream();
+            // Use the binary formatter to serialise message, and store this into the memory stream
+            m_formatter.Serialize(memoryStream, clientName);
+            // Get the byte array from the memory stream and store into buffer
+            byte[] buffer = memoryStream.GetBuffer();
+            // Write the length of this array to m_writer, so the size can be checked on the recieving end
+            m_writer.Write(buffer.Length);
+            // Write the buffer to m_writer
+            m_writer.Write(buffer);
+            // Flush the writer
+            m_writer.Flush();
         }
 
         public void SendMessage(string message)
