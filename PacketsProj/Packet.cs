@@ -47,10 +47,10 @@ namespace PacketsProj
     [Serializable]
     public class PublicKeyPacket : Packet
     {
-        public RSAParameters m_publicKey;
+        public RSAParameters m_key;
         public PublicKeyPacket(RSAParameters publicKey)
         {
-            m_publicKey = publicKey;
+            m_key = publicKey;
             m_packetType = PacketType.PublicKey;
         }
     }

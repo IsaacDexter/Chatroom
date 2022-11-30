@@ -17,9 +17,9 @@
             <TextBox x:Name="PortBox" HorizontalAlignment="Left" Margin="218,0,0,0" TextWrapping="Wrap" Text="4444" VerticalAlignment="Center" Width="50" Height="26"/>
             <Label Content="Port:" HorizontalAlignment="Left" Margin="179,0,0,0" VerticalAlignment="Center" Height="26" Width="34"/>
             <Label Content="Server IP:" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Height="26" Width="59"/>
-            <Label Content="Nickname:" HorizontalAlignment="Left" Margin="344,0,0,0" VerticalAlignment="Center" Width="70" Height="26"/>
-            <TextBox x:Name="NicknameBox" HorizontalAlignment="Left" Margin="419,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center" Width="100" Height="26"/>
-            <CheckBox x:Name="EnableServerBox" Content="Enable Server" HorizontalAlignment="Left" Margin="524,0,0,0" VerticalAlignment="Center" Width="100" Height="26"/>
+            <Label Content="Nickname:" HorizontalAlignment="Left" Margin="329,0,0,0" VerticalAlignment="Center" Width="70" Height="26"/>
+            <TextBox x:Name="NicknameBox" HorizontalAlignment="Left" Margin="404,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center" Width="100" Height="26"/>
+            <CheckBox x:Name="EncryptionBox" Content="Enable Encryption" HorizontalAlignment="Left" Margin="509,0,0,0" VerticalAlignment="Center" Width="115" Height="26" IsChecked="True"/>
         </Grid>
         <Grid Background="#FFFFF0AA" Width="780" Height="44" Margin="10,380,10,10">
             <Grid.ColumnDefinitions>

@@ -55,7 +55,7 @@ namespace ClientProj
                 m_formatter = new BinaryFormatter();
                 return true;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine("Exception: " + e.Message);
                 return false;
@@ -68,7 +68,7 @@ namespace ClientProj
             m_mainWindow = new MainWindow(this);
 
             // Create a thread that will process server response and start it
-            Thread readThread = new Thread(() => { ProcessServerResponse(); });
+            Thread readThread = new Thread(() => { Listen(); });
             readThread.Start();
 
             // Call show dialogue on the form class
@@ -85,7 +85,7 @@ namespace ClientProj
         /// <summary>
         /// Print out the stream readers value to the console. 
         /// </summary>
-        private void ProcessServerResponse()
+        private void Listen()
         {
             // While the client is connected...
             while (m_tcpClient.Connected)
@@ -98,31 +98,59 @@ namespace ClientProj
                 {
                     // Use the number of bytes to read the correct number of bytes and store in the buffer
                     byte[] buffer = m_reader.ReadBytes(numberOfBytes);
-                    // Create a new memory stream and pass the byte array into the constructor
-                    MemoryStream memoryStream = new MemoryStream(buffer);
-                    // use the formatter to deserialise the data in the memory stream, cast it to a packet and return it.
-                    Packet message = m_formatter.Deserialize(memoryStream) as Packet;
-                    // Switch on the type of packet (message type) recieved
-                    switch (message.m_packetType)
-                    {
-                        case PacketType.ChatMessage:
-                            // Cast the chatMessagePacket to be the right type of packet class
-                            ChatMessagePacket chatMessage = (ChatMessagePacket)message;
-                            // Output the recieved message to the UI, after having cast it
-                            m_mainWindow.DisplayChat(chatMessage.m_message);
-                            break;
-                        case PacketType.PrivateMessage:
-                            break;
-                        case PacketType.ClientName:
-                            // Cast the ClientNamePacket to be the right type of packet class
-                            ClientNamePacket clientName = (ClientNamePacket)message;
-                            m_mainWindow.ClientUpdated(clientName.m_name, clientName.m_oldName);
-                            break;
-                        default:
-                            break;
-                    }
-                    
+                    ProcessServerResponse(buffer);
                 }
+            }
+        }
+
+        private void ProcessServerResponse(byte[] buffer)
+        {
+            // Create a new memory stream and pass the byte array into the constructor
+            MemoryStream memoryStream = new MemoryStream(buffer);
+            // use the formatter to deserialise the data in the memory stream, cast it to a packet and return it.
+            Packet packet = m_formatter.Deserialize(memoryStream) as Packet;
+            // Switch on the type of packet (message type) recieved
+            switch (packet.m_packetType)
+            {
+                case PacketType.ChatMessage:
+                    {
+                        // Cast the chatMessagePacket to be the right type of packet class
+                        ChatMessagePacket chatMessage = (ChatMessagePacket)packet;
+                        // Output the recieved message to the UI, after having cast it
+                        m_mainWindow.DisplayChat(chatMessage.m_message);
+                        break;
+                    }
+                case PacketType.PrivateMessage:
+                    {
+                        break;
+                    }
+                case PacketType.ClientName:
+                    {
+                        // Cast the ClientNamePacket to be the right type of packet class
+                        ClientNamePacket clientName = (ClientNamePacket)packet;
+                        m_mainWindow.ClientUpdated(clientName.m_name, clientName.m_oldName);
+                        break;
+                    }
+                case PacketType.EncryptedChatMessage:
+                    {
+                        // Cast the recieved packet to be the right type of client name packet class
+                        EncryptedChatMessagePacket encryptedChatMessage = (EncryptedChatMessagePacket)packet;
+                        // Decrypt the recieved packet's message
+                        string message = DecryptString(encryptedChatMessage.m_message);
+                        // Output the recieved message to the UI, after having cast it
+                        m_mainWindow.DisplayChat(message);
+                        break;
+                    }
+                case PacketType.PublicKey:
+                    {
+                        // Server key was recieved
+                        Handshake(packet);
+                        break;
+                    }
+                default:
+                    {
+                        break;
+                    }
             }
         }
 
@@ -156,10 +184,10 @@ namespace ClientProj
         /// <summary>Builds a chat message packet or encrypted chat message packet and calls the send function to send it across the server</summary>
         /// <param name="message">The message to send, will be encrypted for you if you so desire</param>
         /// <param name="encrypted">Whether or not to encyrpted the data. True = encrypted. Defaults to true</param>
-        public void SendChatMessage(string message, bool encrypt = true)
+        public void SendChatMessage(string message)
         {
             // Send an encrypted message
-            if (encrypt)
+            if (m_encrypted)
             {
                 byte[] encryptedMessage = EncryptString(message);
                 // Pass this encrypted byte array into an encryptedChatMessagePacket
@@ -167,11 +195,12 @@ namespace ClientProj
                 Send(encryptedChatMessage);
             }
             // Send an unencrypted message
-
-            // Instanciate a new ChatMessagePacket from the string sent from the UI
-            ChatMessagePacket chatMessagePacket = new ChatMessagePacket(message);
-            Send(chatMessagePacket);
-            return;
+            else
+            {
+                // Instanciate a new ChatMessagePacket from the string sent from the UI
+                ChatMessagePacket chatMessagePacket = new ChatMessagePacket(message);
+                Send(chatMessagePacket);
+            }
         }
 
         #endregion
@@ -186,12 +215,20 @@ namespace ClientProj
             m_privateKey = m_rsaProvider.ExportParameters(true);
             // Use m_rsaProvider to generate a public key (false = public)
             m_publicKey = m_rsaProvider.ExportParameters(false);
+            m_encrypted = true;
         }
 
         private RSACryptoServiceProvider m_rsaProvider;
         private RSAParameters m_publicKey;
         private RSAParameters m_privateKey;
         private RSAParameters m_serverKey;
+        /// <summary>Whether or not to use encryption when sending messages.</summary>
+        private bool m_encrypted;
+
+        public void ToggleEncryption()
+        {
+            m_encrypted = !m_encrypted;
+        }
 
         private byte[] Encrypt(byte[] data)
         {
@@ -217,9 +254,6 @@ namespace ClientProj
             }
         }
 
-        /// <summary></summary>
-        /// <param name="message"></param>
-        /// <returns></returns>
         private byte[] EncryptString(string message)
         {
             // Convert the parameter string into a byte array, and encrypt it, then return it
@@ -230,6 +264,17 @@ namespace ClientProj
         {
             // Call the decrypt method to decrypt the byte array, then convert it into a string, then return it
             return Encoding.UTF8.GetString(Decrypt(message));
+        }
+
+        //Recieves the server's public key and sends back this' public key
+        private void Handshake(Packet packet)
+        {
+            // cast the packet to the right type
+            PublicKeyPacket serverKey = (PublicKeyPacket)packet;
+            // Set the server key to be equal to the server's public key
+            m_serverKey = serverKey.m_key;
+            // send our public key back to them
+            Send(new PublicKeyPacket(m_publicKey));
         }
 
         #endregion

@@ -45,6 +45,8 @@ namespace ServerProj
             m_formatter = new BinaryFormatter();
         }
 
+        #region Disconnecting
+
         public void Close()
         {
             m_stream.Close();
@@ -52,6 +54,10 @@ namespace ServerProj
             m_writer.Close();
             m_socket.Close();
         }
+
+        #endregion
+
+        #region Recieving
 
         public Packet Read()
         {
@@ -72,6 +78,10 @@ namespace ServerProj
             }
             return null;
         }
+
+        #endregion
+
+        #region Sending
 
         /// <summary>Sends binary data that is generated from a serialised packet</summary>
         /// <param name="message">a serialised packet of a PacketType, determined in the enum</param>
@@ -95,6 +105,8 @@ namespace ServerProj
             }
         }
 
+        #endregion
+
         #region Encryption
 
         private void InitialiseEncryption()
@@ -108,7 +120,7 @@ namespace ServerProj
         }
 
         private RSACryptoServiceProvider m_rsaProvider;
-        private RSAParameters m_publicKey;
+        public RSAParameters m_publicKey { get; private set; }
         private RSAParameters m_privateKey;
         public RSAParameters m_clientKey { set; private get; }
 
@@ -145,7 +157,7 @@ namespace ServerProj
             return Encrypt(Encoding.UTF8.GetBytes(message));
         }
 
-        private string DecryptString(byte[] message)
+        public string DecryptString(byte[] message)
         {
             // Call the decrypt method to decrypt the byte array, then convert it into a string, then return it
             return Encoding.UTF8.GetString(Decrypt(message));
@@ -164,6 +176,8 @@ namespace ServerProj
         {
             m_tcpListener = new TcpListener(ipAddress, port);
         }
+
+        #region Connecting
 
         /// <summary>
         /// Start listening for a connection. When found,
@@ -190,44 +204,62 @@ namespace ServerProj
                 // Accept pending connection and save the returned socket into socket.
                 // This is a blocking function, the program will wait here until a socket has been found
                 Socket socket = m_tcpListener.AcceptSocket();
-                Console.WriteLine("Connection made.");
 
-                // Once the socket has been accepted, create a new instance of the connectedClient class and pass in the socket
-                ConnectedClient client = new ConnectedClient(socket);
-                // Create a new int value set to be the value of the client index. THis has to be done because starting the threads requires passing by reference
-                int index = clientIndex;
-                // Set the clients default name
-                client.m_name = "Client " + clientIndex;
-
-
-
-                // Update each client's client lists to recognise this new client that has joined
-                // For each client...
-                Broadcast(new ClientNamePacket(client.m_name));
-
-                // Increase the client index
-                clientIndex++;
-                // Add the newly connected client into the client dictionary
-                if(!m_clients.TryAdd(index, client))
+                if(!MakeConnection(socket, ref clientIndex))
                 {
-                    // If this fails, break the loop and shut down the server
                     break;
-                }
-
-                // Start the client method in a new thread, allowing the server to service multiple clients
-                Thread clientThread = new Thread(() => { ClientMethod(index); });
-                clientThread.Start();
-
-                // Send the client a welcoming message
-                client.Send(new ChatMessagePacket("Welcome!"));
-
-                // Send the client each of the pre-existing clients, including itself.
-                foreach (var connectedClientPair in m_clients)
-                {
-                    client.Send(new ClientNamePacket(connectedClientPair.Value.m_name));
                 }
             }
         }
+
+        /// <summary>When The connection has been made in Start(), call this with the socket and index. It will handle initial transfer of information, handshakes, etc.</summary>
+        /// <param name="socket">The socket to instanciate the new connected client from</param>
+        /// <param name="clientIndex">A reference to the index of the client</param>
+        /// <returns></returns>
+        private bool MakeConnection(Socket socket, ref int clientIndex)
+        {
+            Console.WriteLine("Connection made.");
+
+            // Once the socket has been accepted, create a new instance of the connectedClient class and pass in the socket
+            ConnectedClient client = new ConnectedClient(socket);
+
+            // Create a new int value set to be the value of the client index. THis has to be done because starting the threads requires passing by reference
+            int index = clientIndex;
+            // Set the clients default name
+            client.m_name = "Client " + clientIndex;
+
+            // Update each client's client lists to recognise this new client that has joined
+            Broadcast(new ClientNamePacket(client.m_name));
+
+            // Increase the client index
+            clientIndex++;
+            // Add the newly connected client into the client dictionary
+            if (!m_clients.TryAdd(index, client))
+            {
+                // If this fails, break the loop and shut down the server
+                return false;
+            }
+
+            // Start the client method in a new thread, allowing the server to service multiple clients
+            Thread clientThread = new Thread(() => { Listen(index); });
+            clientThread.Start();
+
+            // Send the client its personal public key, prompting the client to reciprocate the handshake.
+            client.Send(new PublicKeyPacket(client.m_publicKey));
+            // Send the client each of the pre-existing clients, including itself.
+            foreach (var connectedClientPair in m_clients)
+            {
+                client.Send(new ClientNamePacket(connectedClientPair.Value.m_name));
+            }
+            // Send the client a welcoming message
+            client.Send(new ChatMessagePacket("Welcome!"));
+
+            return true;
+        }
+
+        #endregion
+
+        #region Disconnecting
 
         /// <summary>
         /// Stop the tcp listener to prevent it form accepting new connections
@@ -237,11 +269,15 @@ namespace ServerProj
             m_tcpListener.Stop();
         }
 
+        #endregion
+
+        #region Recieving
+
         /// <summary>
         /// Used to read and write to the client
         /// </summary>
         /// <param name="socket"></param>
-        private void ClientMethod(int index)
+        private void Listen(int index)
         {
             Packet recievedMessage;
 
@@ -254,58 +290,68 @@ namespace ServerProj
             // Thread will pause here until readline recieves data as it is a blocking call
             while((recievedMessage = client.Read()) != null)
             {
-                // Switch on the type of packet (message type) recieved
-                switch (recievedMessage.m_packetType)
-                {
-                    case PacketType.ChatMessage:
-                        {
-                            // Cast the recieved packet to be the right type of client name packet class
-                            ChatMessagePacket chatMessage = (ChatMessagePacket)recievedMessage;
-                            // Broadcast the return message as a new chat message packet back to all clients
-                            Broadcast(new ChatMessagePacket(m_clients[index].m_name + " says: " + chatMessage.m_message));
-                            break;
-                        }
-                    case PacketType.PrivateMessage:
-                        {
-                            break;
-                        }
-                    case PacketType.ClientName:
-                        {
-                            // Cast the recieved packet to be the right type of client name packet class
-                            ClientNamePacket clientName = (ClientNamePacket)recievedMessage;
-                            // Send the return message as a client name packet back to each client, with the current name as oldName
-                            Broadcast(new ClientNamePacket(clientName.m_name, m_clients[index].m_name));
-                            // update this clients name on the server
-                            m_clients[index].m_name = clientName.m_name;
-                            break;
-                        }
-                    case PacketType.EncryptedChatMessage:
-                        {
-                            // Cast the recieved packet to be the right type of client name packet class
-                            EncryptedChatMessagePacket encryptedChatMessage = (EncryptedChatMessagePacket)recievedMessage;
-                            // Broadcast the return message as a new encrypted chat message packet back to all clients
-                            Broadcast(new ChatMessagePacket(m_clients[index].m_name + " says: " + encryptedChatMessage.m_message));
-                            break;
-                        }
-                    case PacketType.PublicKey:
-                        {
-                            // Cast the recieved packet to be the right type of client name packet class
-                            PublicKeyPacket publicKey = (PublicKeyPacket)recievedMessage;
-                            // Set that client's serverside client key to be equal to their public key
-                            m_clients[index].m_clientKey = publicKey.m_publicKey;
-                            break;
-                        }
-                    default:
-                        {
-                            break;
-                        }
-                }
+                HandleResponse(recievedMessage, client);
                 
             }
             // Close the client, and remove it from the dictionary
             client.Close();
             m_clients.TryRemove(index, out client);
         }
+
+        public void HandleResponse(Packet packet, ConnectedClient client)
+        {
+            // Switch on the type of packet (message type) recieved
+            switch (packet.m_packetType)
+            {
+                case PacketType.ChatMessage:
+                    {
+                        // Cast the recieved packet to be the right type of client name packet class
+                        ChatMessagePacket chatMessage = (ChatMessagePacket)packet;
+                        // Broadcast the return message as a new chat message packet back to all clients
+                        Broadcast(new ChatMessagePacket(client.m_name + " says: " + chatMessage.m_message));
+                        break;
+                    }
+                case PacketType.PrivateMessage:
+                    {
+                        break;
+                    }
+                case PacketType.ClientName:
+                    {
+                        // Cast the recieved packet to be the right type of client name packet class
+                        ClientNamePacket clientName = (ClientNamePacket)packet;
+                        // Send the return message as a client name packet back to each client, with the current name as oldName
+                        Broadcast(new ClientNamePacket(clientName.m_name, client.m_name));
+                        // update this clients name on the server
+                        client.m_name = clientName.m_name;
+                        break;
+                    }
+                case PacketType.EncryptedChatMessage:
+                    {
+                        // Cast the recieved packet to be the right type of client name packet class
+                        EncryptedChatMessagePacket encryptedChatMessage = (EncryptedChatMessagePacket)packet;
+                        // Broadcast the return message as a new encrypted chat message packet back to all clients
+                        string message = client.DecryptString(encryptedChatMessage.m_message);
+                        Broadcast(new ChatMessagePacket(client.m_name + " encyptedly says: " + message));
+                        break;
+                    }
+                case PacketType.PublicKey:
+                    {
+                        // Cast the recieved packet to be the right type of client name packet class
+                        PublicKeyPacket clientKey = (PublicKeyPacket)packet;
+                        // Set that client's serverside client key to be equal to their public key
+                        client.m_clientKey = clientKey.m_key;
+                        break;
+                    }
+                default:
+                    {
+                        break;
+                    }
+            }
+        }
+
+        #endregion
+
+        #region Sending
 
         /// <summary>
         /// Sends a packet to each and every client on the server
@@ -318,6 +364,8 @@ namespace ServerProj
                 connectedClient.Value.Send(packet);
             }
         }
+
+        #endregion
     }
 
 

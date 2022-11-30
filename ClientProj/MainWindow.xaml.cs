@@ -42,7 +42,6 @@ namespace ClientProj
 
         private int m_port;
         private IPAddress m_ip;
-        private bool m_server;
 
         private Client m_client;
 
@@ -145,7 +144,6 @@ namespace ClientProj
         public MainWindow(Client client)
         {
             //Set up Client technical information
-            m_server = false;
             m_ip = IPAddress.Parse("127.0.0.1");
             m_port = 4444;
 
@@ -160,11 +158,15 @@ namespace ClientProj
             //define interaction events
             SendButton.Click += SendButton_Click;
             NicknameBox.TextChanged += NicknameBox_TextChanged;
-            EnableServerBox.Checked += EnableServerBox_Checked;
-            EnableServerBox.Unchecked += EnableServerBox_Unchecked;
+            EncryptionBox.Click += EncryptionBox_Click;
             IPBox.TextChanged += IPBox_TextChanged;
             PortBox.TextChanged += PortBox_TextChanged;
             StartGameButton.Click += StartGameButton_Click;
+        }
+
+        private void EncryptionBox_Click(object sender, RoutedEventArgs e)
+        {
+            m_client.ToggleEncryption();
         }
 
         private void StartGameButton_Click(object sender, RoutedEventArgs e)
@@ -199,21 +201,7 @@ namespace ClientProj
             }
         }
 
-        /// <summary>
-        /// Update m_server when the enable server checkbox is unchecked.
-        /// </summary>
-        private void EnableServerBox_Unchecked(object sender, RoutedEventArgs e)
-        {
-            m_server = false;
-        }
 
-        /// <summary>
-        /// Update m_server when the enable server checkbox is checked.
-        /// </summary>
-        private void EnableServerBox_Checked(object sender, RoutedEventArgs e)
-        {
-            m_server = true;
-        }
 
         /// <summary>
         /// When the nickname is changed, update the internal and displayed client lists to refelect this
@@ -252,5 +240,6 @@ namespace ClientProj
             // Send the message to the server
             SendMessage(message);
         }
+
     }
 }
