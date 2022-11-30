@@ -14,6 +14,7 @@ namespace PacketsProj
         DirectMessage,
         EncryptedDirectMessage,
         ClientName,
+        ServerKey,
         PublicKey,
     }
 
@@ -71,13 +72,33 @@ namespace PacketsProj
         }
     }
 
+    /// <summary>
+    /// A packet that contains the public key of a server or client, to be sent to the server or sent to the client during their initial handshake
+    /// </summary>
+    [Serializable]
+    public class ServerKeyPacket : Packet
+    {
+        public RSAParameters m_key;
+        public ServerKeyPacket(RSAParameters publicKey)
+        {
+            m_key = publicKey;
+            m_packetType = PacketType.ServerKey;
+        }
+    }
+
+    /// <summary>
+    /// A packet containing the public key of a client, to be sent to another client for their handshake before exchanging encrypted messages that the server cannot decrypt
+    /// </summary>
     [Serializable]
     public class PublicKeyPacket : Packet
     {
         public RSAParameters m_key;
-        public PublicKeyPacket(RSAParameters publicKey)
+        public string m_name;
+        public PublicKeyPacket(RSAParameters publicKey, string name)
         {
             m_key = publicKey;
+            m_name = name;
+
             m_packetType = PacketType.PublicKey;
         }
     }

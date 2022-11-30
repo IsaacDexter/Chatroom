@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Text;
 using System.IO;
@@ -18,22 +19,25 @@ namespace ClientProj
     /// </summary>
     public class Client
     {
-        #region Initialisation
-
         private TcpClient m_tcpClient;
         private NetworkStream m_stream;
         private BinaryReader m_reader;
         private BinaryWriter m_writer;
         private BinaryFormatter m_formatter;
+        /// <summary>Contains a key value pair of names and associated public keys connected to those names. It is vital that these names are updated with p_clients so we don't end up with redundancies.</summary>
+        private ConcurrentDictionary<string, RSAParameters> m_keys;
 
         private MainWindow m_mainWindow;
         public Client()
         {
             // Create a new instance of TcpClient
             m_tcpClient = new TcpClient();
+            m_keys = new ConcurrentDictionary<string, RSAParameters>();
 
             InitialiseEncryption();
         }
+
+        #region Connecting
 
         /// <summary>
         /// This method will try and set up a connection to the server using a try/catch to check for errors
@@ -120,21 +124,6 @@ namespace ClientProj
                         m_mainWindow.DisplayChat(chatMessage.m_message);
                         break;
                     }
-                case PacketType.DirectMessage:
-                    {
-                        // Cast the packet to a direct message
-                        DirectMessagePacket directMessage = (DirectMessagePacket)packet;
-                        // Output the message to the UI.
-                        m_mainWindow.DisplayMessage(directMessage.m_message, directMessage.m_recipient);
-                        break;
-                    }
-                case PacketType.ClientName:
-                    {
-                        // Cast the ClientNamePacket to be the right type of packet class
-                        ClientNamePacket clientName = (ClientNamePacket)packet;
-                        m_mainWindow.ClientUpdated(clientName.m_name, clientName.m_oldName);
-                        break;
-                    }
                 case PacketType.EncryptedChatMessage:
                     {
                         // Cast the recieved packet to be the right type of client name packet class
@@ -145,10 +134,43 @@ namespace ClientProj
                         m_mainWindow.DisplayChat(message);
                         break;
                     }
-                case PacketType.PublicKey:
+                case PacketType.DirectMessage:
+                    {
+                        // Cast the packet to a direct message
+                        DirectMessagePacket directMessage = (DirectMessagePacket)packet;
+                        // Output the message to the UI.
+                        m_mainWindow.DisplayMessage(directMessage.m_message, directMessage.m_recipient);
+                        break;
+                    }
+                case PacketType.EncryptedDirectMessage:
+                    {
+                        // Cast the recieved packet to be the right type of client name packet class
+                        EncryptedDirectMessagePacket encryptedDirectMessage = (EncryptedDirectMessagePacket)packet;
+                        // Decrypt the recieved packet's recipient
+                        string recipient = DecryptString(encryptedDirectMessage.m_recipient);
+                        // Search m_keys for 
+                        string message = DecryptString(encryptedDirectMessage.m_message);
+                        // Output the recieved message to the UI, after having cast and decrypted it
+                        m_mainWindow.DisplayMessage(message, recipient);
+                        break;
+                    }
+                case PacketType.ClientName:
+                    {
+                        // Cast the ClientNamePacket to be the right type of packet class
+                        ClientNamePacket clientName = (ClientNamePacket)packet;
+                        m_mainWindow.ClientUpdated(clientName.m_name, clientName.m_oldName);
+                        break;
+                    }
+                case PacketType.ServerKey:
                     {
                         // Server key was recieved
-                        Handshake(packet);
+                        ClientServerHandshake(packet);
+                        break;
+                    }
+                case PacketType.PublicKey:
+                    {
+                        // Another clients key was recieved
+                        ClientClientHandshake(packet);
                         break;
                     }
                 default:
@@ -193,6 +215,7 @@ namespace ClientProj
             // Send an encrypted message
             if (m_encrypted)
             {
+                // Encrypt the message so only the server can decrypt it
                 byte[] encryptedMessage = EncryptString(message);
                 // Pass this encrypted byte array into an encryptedChatMessagePacket
                 EncryptedChatMessagePacket encryptedChatMessage = new EncryptedChatMessagePacket(encryptedMessage);
@@ -209,10 +232,25 @@ namespace ClientProj
 
         public void SendPrivateMessage(string message, string recipient)
         {
-            // Instanciate a new direct message from the message and recipient sent over from the UI
-            DirectMessagePacket directMessage = new DirectMessagePacket(message, recipient);
-            // Send that message
-            Send(directMessage);
+            // Send an encrypted message
+            if (m_encrypted)
+            {
+                // Encrypt the message using the recipient's key, stored in m_keys, so that only the client may decrypt it using their own private key
+                byte[] encryptedMessage = EncryptString(message, recipient);
+                // Encrypt the recipient using the server key, so the server can decrypt it and send it as neccesary
+                byte[] encryptedRecipient = EncryptString(recipient);
+                // Pass this encrypted byte array into an encryptedChatMessagePacket
+                EncryptedDirectMessagePacket encryptedDirectMessage = new EncryptedDirectMessagePacket(encryptedMessage, encryptedRecipient);
+                Send(encryptedDirectMessage);
+            }
+            // Send an unencrypted message
+            else
+            {
+                // Instanciate a new direct message from the message and recipient sent over from the UI
+                DirectMessagePacket directMessage = new DirectMessagePacket(message, recipient);
+                // Send that message
+                Send(directMessage);
+            }
         }
 
         #endregion
@@ -253,6 +291,17 @@ namespace ClientProj
                 return m_rsaProvider.Encrypt(data, true);
             }
         }
+        private byte[] Encrypt(byte[] data, RSAParameters key)
+        {
+            // Lock on service provider to prevent race conditions
+            lock (m_rsaProvider)
+            {
+                // Set the service proider to use the specified key
+                m_rsaProvider.ImportParameters(key);
+                // Generate an encrypted byte array and return it
+                return m_rsaProvider.Encrypt(data, true);
+            }
+        }
 
         private byte[] Decrypt(byte[] data)
         {
@@ -271,6 +320,21 @@ namespace ClientProj
             // Convert the parameter string into a byte array, and encrypt it, then return it
             return Encrypt(Encoding.UTF8.GetBytes(message));
         }
+        private byte[] EncryptString(string message, string recipient)
+        {
+            // Seach m_keys for a key belonging to a client of this name
+            KeyValuePair<string, RSAParameters> client = m_keys.FirstOrDefault(c => c.Key == recipient);
+            // if its found...
+            if (!client.Equals(default(KeyValuePair<string, RSAParameters>)))
+            {
+                // Get that client's key
+                RSAParameters key = client.Value;
+                // Convert the message into a byte array, encrypt it using the recipients key, and return it
+                return Encrypt(Encoding.UTF8.GetBytes(message), key);
+            }
+            // if not, return nothing
+            return null;
+        }
 
         private string DecryptString(byte[] message)
         {
@@ -278,15 +342,49 @@ namespace ClientProj
             return Encoding.UTF8.GetString(Decrypt(message));
         }
 
-        //Recieves the server's public key and sends back this' public key
-        private void Handshake(Packet packet)
+        private RSAParameters FindKey(string client)
+        {
+            // Seach m_keys for a key belonging to a client of this name
+            KeyValuePair<string, RSAParameters> foundClient = m_keys.FirstOrDefault(c => c.Key == client);
+            // if its found...
+            if (!client.Equals(default(KeyValuePair<string, RSAParameters>)))
+            {
+                // Get that client's key
+                return foundClient.Value;
+            }
+            // otherwise, return the default key
+            return default
+        }
+
+            //Recieves the server's public key and sends back this' public key
+            private void ClientServerHandshake(Packet packet)
         {
             // cast the packet to the right type
-            PublicKeyPacket serverKey = (PublicKeyPacket)packet;
+            ServerKeyPacket serverKey = (ServerKeyPacket)packet;
             // Set the server key to be equal to the server's public key
             m_serverKey = serverKey.m_key;
             // send our public key back to them
-            Send(new PublicKeyPacket(m_publicKey));
+            Send(new ServerKeyPacket(m_publicKey));
+        }
+
+        private void ClientClientHandshake(Packet packet)
+        {
+            // cast the packet to the right type
+            PublicKeyPacket clientKey = (PublicKeyPacket)packet;
+            // store the name and the key in local variables
+            string name = clientKey.m_name;
+            RSAParameters publicKey = clientKey.m_key;
+            // search m_keys to see if we have this key all ready
+            KeyValuePair<string, RSAParameters> client = m_keys.FirstOrDefault(c => c.Key == name);
+            // if we don't... 
+            if (client.Equals(default(KeyValuePair<string, RSAParameters>)))
+            {
+                // add the key and the name to m_keys
+                m_keys.TryAdd(name, publicKey);
+                // reciprocate the handshake, by sending a public key addressed to them. The server will change this so our name is m_name while it reroutes.
+                Send(new PublicKeyPacket(m_publicKey, name));
+            }
+            // if it was allready there, we can do nothing. This will avoid infinite shaking of hands.
         }
 
         #endregion

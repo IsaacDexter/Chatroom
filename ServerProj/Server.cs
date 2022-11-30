@@ -256,7 +256,7 @@ namespace ServerProj
             clientThread.Start();
 
             // Send the client its personal public key, prompting the client to reciprocate the handshake.
-            client.Send(new PublicKeyPacket(client.m_publicKey));
+            client.Send(new ServerKeyPacket(client.m_publicKey));
             // Send the client each of the pre-existing clients, including itself.
             foreach (var connectedClientPair in m_clients)
             {
@@ -355,10 +355,10 @@ namespace ServerProj
                         Broadcast(new ChatMessagePacket(client.m_name + " encyptedly says: " + message));
                         break;
                     }
-                case PacketType.PublicKey:
+                case PacketType.ServerKey:
                     {
                         // Cast the recieved packet to be the right type of client name packet class
-                        PublicKeyPacket clientKey = (PublicKeyPacket)packet;
+                        ServerKeyPacket clientKey = (ServerKeyPacket)packet;
                         // Set that client's serverside client key to be equal to their public key
                         client.m_clientKey = clientKey.m_key;
                         break;
