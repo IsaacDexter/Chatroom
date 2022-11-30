@@ -311,7 +311,7 @@ namespace ServerProj
                         Broadcast(new ChatMessagePacket(client.m_name + " says: " + chatMessage.m_message));
                         break;
                     }
-                case PacketType.PrivateMessage:
+                case PacketType.DirectMessage:
                     {
                         break;
                     }

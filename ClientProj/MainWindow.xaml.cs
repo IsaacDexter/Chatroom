@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
 using System.Numerics;
@@ -19,18 +20,15 @@ namespace ClientProj
 {
     public class DataObject
     {
-        public List<string> p_clients { get; set; }
-        //A list used in composite collections to give an all option with messages
-        public List<string> p_recipients { get; set; }
-        public List<string> p_chat { get; set; }
-        public List<string> p_messages { get; set; }
+        public ObservableCollection<string> p_clients { get; set; }
+        public ObservableCollection<string> p_chat { get; set; }
+        public ObservableCollection<string> p_messages { get; set; }
 
         public DataObject()
         {
-            p_clients = new List<string>();
-            p_recipients = new List<string>();
-            p_chat = new List<string>();
-            p_messages = new List<string>();
+            p_clients = new ObservableCollection<string>();
+            p_chat = new ObservableCollection<string>();
+            p_messages = new ObservableCollection<string>();
         }
     }
 
@@ -46,16 +44,6 @@ namespace ClientProj
         private Client m_client;
 
         private DataObject m_dataContext;
-
-
-
-
-
-        private void RefreshDataContext()
-        {
-            DataContext = null;
-            DataContext = m_dataContext;
-        }
 
         /// <summary>
         /// sends the message to the data context and refreshes the context
@@ -84,7 +72,6 @@ namespace ClientProj
             //Add game functionality later
             string challenge = challengee + ", I challenge you!";
             SendMessage(challenge);
-            RefreshDataContext();
         }
 
 
@@ -94,7 +81,6 @@ namespace ClientProj
             ChatList.Dispatcher.Invoke(() =>
             {
                 m_dataContext.p_chat.Add(message);
-                RefreshDataContext();
             });
         }
 
@@ -113,7 +99,6 @@ namespace ClientProj
                     // Add this new client to the clients list
                     m_dataContext.p_clients.Add(name);
                     //Refresh the data context so this is reflected in the display
-                    RefreshDataContext();
                     return;
                 });
             }
@@ -125,15 +110,15 @@ namespace ClientProj
                 {
                     // Add this new client to the clients list
                     // Find the index where the clients old name was
-                    int index = m_dataContext.p_clients.FindIndex(c => c == oldName);
+                    var item = m_dataContext.p_clients.FirstOrDefault(c => c == oldName);
                     // If the old clients name was indeed in the list...
-                    if (index != -1)
+                    if (item != null)
                     {
+                        int i = m_dataContext.p_clients.IndexOf(item);
                         // ...Set it to the new one! Otherwise, do nothing, as something is wrong.
-                        m_dataContext.p_clients[index] = name;
+                        m_dataContext.p_clients[i] = name;
                     }
                     //Refresh the data context so this is reflected in the display
-                    RefreshDataContext();
                     return;
                 });
             }

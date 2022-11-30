@@ -11,7 +11,8 @@ namespace PacketsProj
     {
         ChatMessage,
         EncryptedChatMessage,
-        PrivateMessage,
+        DirectMessage,
+        EncryptedDirectMessage,
         ClientName,
         PublicKey,
     }
@@ -41,6 +42,32 @@ namespace PacketsProj
         {
             m_message = encryptedMessage;
             m_packetType = PacketType.EncryptedChatMessage;
+        }
+    }
+
+    [Serializable]
+    public class DirectMessagePacket : Packet
+    {
+        public string m_message;
+        public string m_recipient;
+        public DirectMessagePacket(string message, string recipient)
+        {
+            m_message = message;
+            m_recipient = recipient; 
+            m_packetType = PacketType.DirectMessage;
+        }
+    }
+
+    [Serializable]
+    public class EncryptedDirectMessagePacket : Packet
+    {
+        public byte[] m_message;
+        public byte[] m_recipient;
+        public EncryptedDirectMessagePacket(byte[] encryptedMessage, byte[] encryptedRecipient)
+        {
+            m_message = encryptedMessage;
+            m_recipient = encryptedRecipient;
+            m_packetType = PacketType.EncryptedDirectMessage;
         }
     }
 

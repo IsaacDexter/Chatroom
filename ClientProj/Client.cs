@@ -120,7 +120,7 @@ namespace ClientProj
                         m_mainWindow.DisplayChat(chatMessage.m_message);
                         break;
                     }
-                case PacketType.PrivateMessage:
+                case PacketType.DirectMessage:
                     {
                         break;
                     }
@@ -185,6 +185,25 @@ namespace ClientProj
         /// <param name="message">The message to send, will be encrypted for you if you so desire</param>
         /// <param name="encrypted">Whether or not to encyrpted the data. True = encrypted. Defaults to true</param>
         public void SendChatMessage(string message)
+        {
+            // Send an encrypted message
+            if (m_encrypted)
+            {
+                byte[] encryptedMessage = EncryptString(message);
+                // Pass this encrypted byte array into an encryptedChatMessagePacket
+                EncryptedChatMessagePacket encryptedChatMessage = new EncryptedChatMessagePacket(encryptedMessage);
+                Send(encryptedChatMessage);
+            }
+            // Send an unencrypted message
+            else
+            {
+                // Instanciate a new ChatMessagePacket from the string sent from the UI
+                ChatMessagePacket chatMessagePacket = new ChatMessagePacket(message);
+                Send(chatMessagePacket);
+            }
+        }
+
+        public void SendPrivateMessage(string message, string recipient)
         {
             // Send an encrypted message
             if (m_encrypted)

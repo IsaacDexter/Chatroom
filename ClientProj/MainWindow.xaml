@@ -28,7 +28,17 @@
             </Grid.ColumnDefinitions>
             <TextBox x:Name="MessageBox" HorizontalAlignment="Left" Margin="74,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center" Width="390" Height="26"/>
             <Label Content="Recipient:" HorizontalAlignment="Left" Margin="469,0,0,0" VerticalAlignment="Center"/>
-            <ComboBox x:Name="RecipientBox" ItemsSource="{Binding p_recipients}" HorizontalAlignment="Left" Margin="535,0,0,0" VerticalAlignment="Center" Width="160" Height="26" Grid.ColumnSpan="2"></ComboBox>
+            <ComboBox x:Name="RecipientBox" HorizontalAlignment="Left" Margin="535,0,0,0" VerticalAlignment="Center" Width="160" Height="26" Grid.ColumnSpan="2">
+                <ComboBox.Resources>
+                    <CollectionViewSource x:Key="RecipientCollection" Source="{Binding p_clients}" />
+                </ComboBox.Resources>
+                <ComboBox.ItemsSource>
+                    <CompositeCollection>
+                        <CollectionContainer Collection="{Binding Source={StaticResource RecipientCollection}}" />
+                        <ComboBoxItem Content="All" />
+                    </CompositeCollection>
+                </ComboBox.ItemsSource>
+            </ComboBox>
             <Button x:Name="SendButton" Content="Send" HorizontalAlignment="Left" Margin="21,0,0,0" VerticalAlignment="Center" Height="26" Width="70" Grid.Column="1"/>
             <Label Content="Message:" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </Grid>
