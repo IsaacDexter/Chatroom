@@ -177,6 +177,17 @@ namespace ServerProj
             m_tcpListener = new TcpListener(ipAddress, port);
         }
 
+        #region Searching
+
+        /// <param name="name">The name, as a string, of the client to find</param>
+        /// <returns>The client of that name. NULL if no client was found</returns>
+        public ConnectedClient FindClient(string name)
+        {
+            return m_clients.FirstOrDefault(c => c.Value.m_name == name).Value;
+        }
+
+        #endregion
+
         #region Connecting
 
         /// <summary>
@@ -313,6 +324,16 @@ namespace ServerProj
                     }
                 case PacketType.DirectMessage:
                     {
+                        // Cast the recieved packet to be a direct packet
+                        DirectMessagePacket directMessage = (DirectMessagePacket)packet;
+                        // Search m_clients for the client the message was addressed to
+                        ConnectedClient recipient = FindClient(directMessage.m_recipient);
+                        // So long as that client exists
+                        if (recipient != null)
+                        {
+                            // Send the message on its way to that client, with a the recipient set to be the sendee, so the client knows who messaged them
+                            recipient.Send(new DirectMessagePacket(directMessage.m_message, client.m_name));
+                        }
                         break;
                     }
                 case PacketType.ClientName:

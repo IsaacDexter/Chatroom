@@ -122,6 +122,10 @@ namespace ClientProj
                     }
                 case PacketType.DirectMessage:
                     {
+                        // Cast the packet to a direct message
+                        DirectMessagePacket directMessage = (DirectMessagePacket)packet;
+                        // Output the message to the UI.
+                        m_mainWindow.DisplayMessage(directMessage.m_message, directMessage.m_recipient);
                         break;
                     }
                 case PacketType.ClientName:
@@ -205,21 +209,10 @@ namespace ClientProj
 
         public void SendPrivateMessage(string message, string recipient)
         {
-            // Send an encrypted message
-            if (m_encrypted)
-            {
-                byte[] encryptedMessage = EncryptString(message);
-                // Pass this encrypted byte array into an encryptedChatMessagePacket
-                EncryptedChatMessagePacket encryptedChatMessage = new EncryptedChatMessagePacket(encryptedMessage);
-                Send(encryptedChatMessage);
-            }
-            // Send an unencrypted message
-            else
-            {
-                // Instanciate a new ChatMessagePacket from the string sent from the UI
-                ChatMessagePacket chatMessagePacket = new ChatMessagePacket(message);
-                Send(chatMessagePacket);
-            }
+            // Instanciate a new direct message from the message and recipient sent over from the UI
+            DirectMessagePacket directMessage = new DirectMessagePacket(message, recipient);
+            // Send that message
+            Send(directMessage);
         }
 
         #endregion

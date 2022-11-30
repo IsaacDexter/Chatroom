@@ -49,10 +49,14 @@ namespace ClientProj
         /// sends the message to the data context and refreshes the context
         /// </summary>
         /// <param name="message"></param>
-        private void SendMessage(string message)
+        private void SendChatMessage(string message)
         {
             m_client.SendChatMessage(message);
-            
+        }
+
+        private void SendPrivateMessage(string message, string recipient)
+        {
+            m_client.SendPrivateMessage(message, recipient);
         }
 
         /// <summary>
@@ -71,7 +75,7 @@ namespace ClientProj
         {
             //Add game functionality later
             string challenge = challengee + ", I challenge you!";
-            SendMessage(challenge);
+            m_client.SendChatMessage(challenge);
         }
 
 
@@ -81,6 +85,15 @@ namespace ClientProj
             ChatList.Dispatcher.Invoke(() =>
             {
                 m_dataContext.p_chat.Add(message);
+            });
+        }
+
+        public void DisplayMessage(string message, string sender)
+        {
+            //Invoke will prevent the reading thread calling a UI function, instead allowing the UI to call it when it is safe to do so.
+            MessageList.Dispatcher.Invoke(() =>
+            {
+                m_dataContext.p_messages.Add(sender + " says: " + message);
             });
         }
 
@@ -218,12 +231,26 @@ namespace ClientProj
 
             //store the contents of the message box into message
             string message = MessageBox.Text;
+            // Store the recipient
+            string recipient = RecipientBox.Text;
 
             //leave the message box blank
             MessageBox.Text = "";
 
-            // Send the message to the server
-            SendMessage(message);
+            switch (recipient)
+            {
+                // If this is a public message
+                case "All":
+                    // Send the message to the server
+                    SendChatMessage(message);
+                    break;
+                // Otherwise
+                default:
+                    // Send the private message to the server
+                    SendPrivateMessage(message, recipient);
+                    break;
+            }
+            
         }
 
     }
