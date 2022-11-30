@@ -10,6 +10,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Net;
 using System.Net.Sockets;
 using PacketsProj;
+using System.Security.Cryptography;
 
 namespace ServerProj
 {
@@ -27,6 +28,7 @@ namespace ServerProj
 
         public ConnectedClient(Socket socket)
         {
+            InitialiseEncryption();
             // Create new instances of the read and write locks
             m_readLock = new object();
             m_writeLock = new object();
@@ -92,6 +94,65 @@ namespace ServerProj
                 m_writer.Flush();
             }
         }
+
+        #region Encryption
+
+        private void InitialiseEncryption()
+        {
+            // Instanciate RSACryptoServiceProvider object. The int is the size of the key.
+            m_rsaProvider = new RSACryptoServiceProvider(1024);
+            // Use m_rsaProvider to generate a private key (true = private)
+            m_privateKey = m_rsaProvider.ExportParameters(true);
+            // Use m_rsaProvider to generate a public key (false = public)
+            m_publicKey = m_rsaProvider.ExportParameters(false);
+        }
+
+        private RSACryptoServiceProvider m_rsaProvider;
+        private RSAParameters m_publicKey;
+        private RSAParameters m_privateKey;
+        public RSAParameters m_clientKey { set; private get; }
+
+        private byte[] Encrypt(byte[] data)
+        {
+            // Lock on service provider to prevent race conditions
+            lock (m_rsaProvider)
+            {
+                // Set the service proider to use the server key
+                m_rsaProvider.ImportParameters(m_clientKey);
+                // Generate an encrypted byte array and return it
+                return m_rsaProvider.Encrypt(data, true);
+            }
+        }
+
+        private byte[] Decrypt(byte[] data)
+        {
+            // Lock on service provider to prevent race conditions
+            lock (m_rsaProvider)
+            {
+                // Set the service proider to use the client key
+                m_rsaProvider.ImportParameters(m_privateKey);
+                // decrypt the byte array and return it
+                return m_rsaProvider.Decrypt(data, true);
+            }
+        }
+
+        /// <summary></summary>
+        /// <param name="message"></param>
+        /// <returns></returns>
+        private byte[] EncryptString(string message)
+        {
+            // Convert the parameter string into a byte array, and encrypt it, then return it
+            return Encrypt(Encoding.UTF8.GetBytes(message));
+        }
+
+        private string DecryptString(byte[] message)
+        {
+            // Call the decrypt method to decrypt the byte array, then convert it into a string, then return it
+            return Encoding.UTF8.GetString(Decrypt(message));
+        }
+
+        #endregion
+
     }
     public class Server
     {
@@ -197,24 +258,47 @@ namespace ServerProj
                 switch (recievedMessage.m_packetType)
                 {
                     case PacketType.ChatMessage:
-                        // Cast the chatMessagePacket to be the right type of packet class
-                        ChatMessagePacket chatMessage = (ChatMessagePacket)recievedMessage;
-                        // Pass the recieved message into to GetReturnMessage() which will return a new string that shall be the servers repsonse
-                        // Broadcast the return message as a new chat message packet back to all clients
-                        Broadcast(new ChatMessagePacket(m_clients[index].m_name + " says: " + chatMessage.m_message));
-                        break;
+                        {
+                            // Cast the recieved packet to be the right type of client name packet class
+                            ChatMessagePacket chatMessage = (ChatMessagePacket)recievedMessage;
+                            // Broadcast the return message as a new chat message packet back to all clients
+                            Broadcast(new ChatMessagePacket(m_clients[index].m_name + " says: " + chatMessage.m_message));
+                            break;
+                        }
                     case PacketType.PrivateMessage:
-                        break;
+                        {
+                            break;
+                        }
                     case PacketType.ClientName:
-                        // Cast the recieved packet to be the right type of client name packet class
-                        ClientNamePacket clientName = (ClientNamePacket)recievedMessage;
-                        // Send the return message as a client name packet back to each client, with the current name as oldName
-                        Broadcast(new ClientNamePacket(clientName.m_name, m_clients[index].m_name));
-                        // update this clients name on the server
-                        m_clients[index].m_name = clientName.m_name;
-                        break;
+                        {
+                            // Cast the recieved packet to be the right type of client name packet class
+                            ClientNamePacket clientName = (ClientNamePacket)recievedMessage;
+                            // Send the return message as a client name packet back to each client, with the current name as oldName
+                            Broadcast(new ClientNamePacket(clientName.m_name, m_clients[index].m_name));
+                            // update this clients name on the server
+                            m_clients[index].m_name = clientName.m_name;
+                            break;
+                        }
+                    case PacketType.EncryptedChatMessage:
+                        {
+                            // Cast the recieved packet to be the right type of client name packet class
+                            EncryptedChatMessagePacket encryptedChatMessage = (EncryptedChatMessagePacket)recievedMessage;
+                            // Broadcast the return message as a new encrypted chat message packet back to all clients
+                            Broadcast(new ChatMessagePacket(m_clients[index].m_name + " says: " + encryptedChatMessage.m_message));
+                            break;
+                        }
+                    case PacketType.PublicKey:
+                        {
+                            // Cast the recieved packet to be the right type of client name packet class
+                            PublicKeyPacket publicKey = (PublicKeyPacket)recievedMessage;
+                            // Set that client's serverside client key to be equal to their public key
+                            m_clients[index].m_clientKey = publicKey.m_publicKey;
+                            break;
+                        }
                     default:
-                        break;
+                        {
+                            break;
+                        }
                 }
                 
             }

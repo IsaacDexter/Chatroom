@@ -9,6 +9,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.Serialization.Formatters.Binary;
 using PacketsProj;
+using System.Security.Cryptography;
 
 namespace ClientProj
 {
@@ -17,6 +18,8 @@ namespace ClientProj
     /// </summary>
     public class Client
     {
+        #region Initialisation
+
         private TcpClient m_tcpClient;
         private NetworkStream m_stream;
         private BinaryReader m_reader;
@@ -26,8 +29,10 @@ namespace ClientProj
         private MainWindow m_mainWindow;
         public Client()
         {
-            //Create a new instance of TcpClient
+            // Create a new instance of TcpClient
             m_tcpClient = new TcpClient();
+
+            InitialiseEncryption();
         }
 
         /// <summary>
@@ -73,6 +78,10 @@ namespace ClientProj
             m_tcpClient.Close();
         }
 
+        #endregion
+
+        #region Listening
+
         /// <summary>
         /// Print out the stream readers value to the console. 
         /// </summary>
@@ -117,23 +126,23 @@ namespace ClientProj
             }
         }
 
+        #endregion
+
+        #region Sending
+
         public void SetNickname(string nickname)
         {
-            ////Prevents dupilcate nicknames from being entered
-            //foreach (ConnectedClient client in m_clients)
-            //{
-            //    if (client.GetName() == nickname)
-            //    {
-            //        nickname = "Client " + m_client.GetID();
-            //    }
-            //}
-
             // Instanciate a new ChatMessagePacket from the string sent from the UI
             ClientNamePacket clientName = new ClientNamePacket(nickname);
+            Send(clientName);
+        }
+
+        public void Send(Packet packet)
+        {
             // Create a new memory stream object used to store binary data.
             MemoryStream memoryStream = new MemoryStream();
             // Use the binary formatter to serialise message, and store this into the memory stream
-            m_formatter.Serialize(memoryStream, clientName);
+            m_formatter.Serialize(memoryStream, packet);
             // Get the byte array from the memory stream and store into buffer
             byte[] buffer = memoryStream.GetBuffer();
             // Write the length of this array to m_writer, so the size can be checked on the recieving end
@@ -144,23 +153,86 @@ namespace ClientProj
             m_writer.Flush();
         }
 
-        public void SendMessage(string message)
+        /// <summary>Builds a chat message packet or encrypted chat message packet and calls the send function to send it across the server</summary>
+        /// <param name="message">The message to send, will be encrypted for you if you so desire</param>
+        /// <param name="encrypted">Whether or not to encyrpted the data. True = encrypted. Defaults to true</param>
+        public void SendChatMessage(string message, bool encrypt = true)
         {
+            // Send an encrypted message
+            if (encrypt)
+            {
+                byte[] encryptedMessage = EncryptString(message);
+                // Pass this encrypted byte array into an encryptedChatMessagePacket
+                EncryptedChatMessagePacket encryptedChatMessage = new EncryptedChatMessagePacket(encryptedMessage);
+                Send(encryptedChatMessage);
+            }
+            // Send an unencrypted message
+
             // Instanciate a new ChatMessagePacket from the string sent from the UI
             ChatMessagePacket chatMessagePacket = new ChatMessagePacket(message);
-            // Create a new memory stream object used to store binary data.
-            MemoryStream memoryStream = new MemoryStream();
-            // Use the binary formatter to serialise message, and store this into the memory stream
-            m_formatter.Serialize(memoryStream, chatMessagePacket);
-            // Get the byte array from the memory stream and store into buffer
-            byte[] buffer = memoryStream.GetBuffer();
-            // Write the length of this array to m_writer, so the size can be checked on the recieving end
-            m_writer.Write(buffer.Length);
-            // Write the buffer to m_writer
-            m_writer.Write(buffer);
-            // Flush the writer
-            m_writer.Flush();
+            Send(chatMessagePacket);
+            return;
         }
+
+        #endregion
+
+        #region Encryption
+
+        private void InitialiseEncryption()
+        {
+            // Instanciate RSACryptoServiceProvider object. The int is the size of the key.
+            m_rsaProvider = new RSACryptoServiceProvider(1024);
+            // Use m_rsaProvider to generate a private key (true = private)
+            m_privateKey = m_rsaProvider.ExportParameters(true);
+            // Use m_rsaProvider to generate a public key (false = public)
+            m_publicKey = m_rsaProvider.ExportParameters(false);
+        }
+
+        private RSACryptoServiceProvider m_rsaProvider;
+        private RSAParameters m_publicKey;
+        private RSAParameters m_privateKey;
+        private RSAParameters m_serverKey;
+
+        private byte[] Encrypt(byte[] data)
+        {
+            // Lock on service provider to prevent race conditions
+            lock (m_rsaProvider)
+            {
+                // Set the service proider to use the server key
+                m_rsaProvider.ImportParameters(m_serverKey);
+                // Generate an encrypted byte array and return it
+                return m_rsaProvider.Encrypt(data, true);
+            }
+        }
+
+        private byte[] Decrypt(byte[] data)
+        {
+            // Lock on service provider to prevent race conditions
+            lock (m_rsaProvider)
+            {
+                // Set the service proider to use the client key
+                m_rsaProvider.ImportParameters(m_privateKey);
+                // decrypt the byte array and return it
+                return m_rsaProvider.Decrypt(data, true);
+            }
+        }
+
+        /// <summary></summary>
+        /// <param name="message"></param>
+        /// <returns></returns>
+        private byte[] EncryptString(string message)
+        {
+            // Convert the parameter string into a byte array, and encrypt it, then return it
+            return Encrypt(Encoding.UTF8.GetBytes(message));
+        }
+
+        private string DecryptString(byte[] message)
+        {
+            // Call the decrypt method to decrypt the byte array, then convert it into a string, then return it
+            return Encoding.UTF8.GetString(Decrypt(message));
+        }
+
+        #endregion
     }
 
     internal class Program

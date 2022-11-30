@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 
 namespace PacketsProj
 {
     public enum PacketType
     {
         ChatMessage,
+        EncryptedChatMessage,
         PrivateMessage,
         ClientName,
+        PublicKey,
     }
 
     [Serializable]
@@ -27,6 +30,28 @@ namespace PacketsProj
         {
             m_message = message;
             m_packetType = PacketType.ChatMessage;
+        }
+    }
+
+    [Serializable]
+    public class EncryptedChatMessagePacket : Packet
+    {
+        public byte[] m_message;
+        public EncryptedChatMessagePacket(byte[] encryptedMessage)
+        {
+            m_message = encryptedMessage;
+            m_packetType = PacketType.EncryptedChatMessage;
+        }
+    }
+
+    [Serializable]
+    public class PublicKeyPacket : Packet
+    {
+        public RSAParameters m_publicKey;
+        public PublicKeyPacket(RSAParameters publicKey)
+        {
+            m_publicKey = publicKey;
+            m_packetType = PacketType.PublicKey;
         }
     }
 

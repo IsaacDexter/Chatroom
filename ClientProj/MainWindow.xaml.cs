@@ -64,7 +64,7 @@ namespace ClientProj
         /// <param name="message"></param>
         private void SendMessage(string message)
         {
-            m_client.SendMessage(message);
+            m_client.SendChatMessage(message);
             
         }
 
