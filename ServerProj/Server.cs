@@ -151,7 +151,7 @@ namespace ServerProj
         /// <summary></summary>
         /// <param name="message"></param>
         /// <returns></returns>
-        private byte[] EncryptString(string message)
+        public byte[] EncryptString(string message)
         {
             // Convert the parameter string into a byte array, and encrypt it, then return it
             return Encrypt(Encoding.UTF8.GetBytes(message));
@@ -322,6 +322,15 @@ namespace ServerProj
                         Broadcast(new ChatMessagePacket(client.m_name + " says: " + chatMessage.m_message));
                         break;
                     }
+                case PacketType.EncryptedChatMessage:
+                    {
+                        // Cast the recieved packet to be the right type of client name packet class
+                        EncryptedChatMessagePacket encryptedChatMessage = (EncryptedChatMessagePacket)packet;
+                        // Broadcast the return message as a new encrypted chat message packet back to all clients
+                        string message = client.DecryptString(encryptedChatMessage.m_message);
+                        Broadcast(new ChatMessagePacket(client.m_name + " encyptedly says: " + message));
+                        break;
+                    }
                 case PacketType.DirectMessage:
                     {
                         // Cast the recieved packet to be a direct packet
@@ -336,6 +345,24 @@ namespace ServerProj
                         }
                         break;
                     }
+                case PacketType.EncryptedDirectMessage:
+                    {
+                        // Cast the recieved packet
+                        EncryptedDirectMessagePacket encryptedDirectMessage = (EncryptedDirectMessagePacket)packet;
+                        // Decrypt the recipient's name, which is encrypted via the server key
+                        string name = client.DecryptString(encryptedDirectMessage.m_recipient);
+                        // Search m_clients for the client the message was addressed to
+                        ConnectedClient recipient = FindClient(name);
+                        // So long as that client exists
+                        if(recipient != null)
+                        {
+                            // Encrypt the sender's name using the server key, which the recipient will decrypt with the server key
+                            byte[] sender = recipient.EncryptString(client.m_name);
+                            // Send the message to intended client, with the sendees name, encrypted via the server, as the recipient, so the client knows who messaged them
+                            recipient.Send(new EncryptedDirectMessagePacket(encryptedDirectMessage.m_message, sender));
+                        }
+                        break;
+                    }
                 case PacketType.ClientName:
                     {
                         // Cast the recieved packet to be the right type of client name packet class
@@ -346,21 +373,25 @@ namespace ServerProj
                         client.m_name = clientName.m_name;
                         break;
                     }
-                case PacketType.EncryptedChatMessage:
-                    {
-                        // Cast the recieved packet to be the right type of client name packet class
-                        EncryptedChatMessagePacket encryptedChatMessage = (EncryptedChatMessagePacket)packet;
-                        // Broadcast the return message as a new encrypted chat message packet back to all clients
-                        string message = client.DecryptString(encryptedChatMessage.m_message);
-                        Broadcast(new ChatMessagePacket(client.m_name + " encyptedly says: " + message));
-                        break;
-                    }
                 case PacketType.ServerKey:
                     {
                         // Cast the recieved packet to be the right type of client name packet class
                         ServerKeyPacket clientKey = (ServerKeyPacket)packet;
                         // Set that client's serverside client key to be equal to their public key
                         client.m_clientKey = clientKey.m_key;
+                        break;
+                    }
+                case PacketType.PublicKey:
+                    {
+                        // Cast the recieved packet into a public key packet
+                        PublicKeyPacket publicKey = (PublicKeyPacket)packet;
+                        ConnectedClient recipient = FindClient(publicKey.m_name);
+                        // So long as that client exists
+                        if (recipient != null)
+                        {
+                            // Send the key on its way to that client, with a the recipient set to be the sendee, so the client knows who sent the key to them
+                            recipient.Send(new PublicKeyPacket(publicKey.m_key, client.m_name));
+                        }
                         break;
                     }
                 default:

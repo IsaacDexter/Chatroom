@@ -147,11 +147,18 @@ namespace ClientProj
                         // Cast the recieved packet to be the right type of client name packet class
                         EncryptedDirectMessagePacket encryptedDirectMessage = (EncryptedDirectMessagePacket)packet;
                         // Decrypt the recieved packet's recipient
-                        string recipient = DecryptString(encryptedDirectMessage.m_recipient);
-                        // Search m_keys for 
-                        string message = DecryptString(encryptedDirectMessage.m_message);
+                        string sender = DecryptString(encryptedDirectMessage.m_recipient);
+                        // Search m_keys for the recipient's key
+                        RSAParameters senderKey = FindKey(sender);
+                        //if it wasn't found, break
+                        if (senderKey.Equals(default(RSAParameters)))
+                        {
+                            break;
+                        }
+                        //Othewise, decrypt the string using  the recipients key
+                        string message = DecryptString(encryptedDirectMessage.m_message, senderKey);
                         // Output the recieved message to the UI, after having cast and decrypted it
-                        m_mainWindow.DisplayMessage(message, recipient);
+                        m_mainWindow.DisplayMessage(message, sender);
                         break;
                     }
                 case PacketType.ClientName:
@@ -170,6 +177,7 @@ namespace ClientProj
                 case PacketType.PublicKey:
                     {
                         // Another clients key was recieved
+                        Console.WriteLine("Recieved their end of the handshake from someone");
                         ClientClientHandshake(packet);
                         break;
                     }
@@ -209,7 +217,6 @@ namespace ClientProj
 
         /// <summary>Builds a chat message packet or encrypted chat message packet and calls the send function to send it across the server</summary>
         /// <param name="message">The message to send, will be encrypted for you if you so desire</param>
-        /// <param name="encrypted">Whether or not to encyrpted the data. True = encrypted. Defaults to true</param>
         public void SendChatMessage(string message)
         {
             // Send an encrypted message
@@ -235,8 +242,18 @@ namespace ClientProj
             // Send an encrypted message
             if (m_encrypted)
             {
+                // Check to see if we don't already have that client's public key
+                RSAParameters recipientKey = FindKey(recipient);
+                if (recipientKey.Equals(default(RSAParameters)))
+                {
+                    // If we dont, send them a handshake
+                    Send(new PublicKeyPacket(m_publicKey, recipient));
+                    Console.WriteLine("Send my end of the handshake to " + recipient);
+                    // Wait until they've repsonded
+                    SpinWait.SpinUntil(() => { return !(recipientKey = FindKey(recipient)).Equals(default(RSAParameters)); });
+                }
                 // Encrypt the message using the recipient's key, stored in m_keys, so that only the client may decrypt it using their own private key
-                byte[] encryptedMessage = EncryptString(message, recipient);
+                byte[] encryptedMessage = EncryptString(message, recipientKey);
                 // Encrypt the recipient using the server key, so the server can decrypt it and send it as neccesary
                 byte[] encryptedRecipient = EncryptString(recipient);
                 // Pass this encrypted byte array into an encryptedChatMessagePacket
@@ -315,31 +332,40 @@ namespace ClientProj
             }
         }
 
+        private byte[] Decrypt(byte[] data, RSAParameters key)
+        {
+            // Lock on service provider to prevent race conditions
+            lock (m_rsaProvider)
+            {
+                // Set the service proider to use the specified key
+                m_rsaProvider.ImportParameters(m_privateKey);
+                // Generate an encrypted byte array and return it
+                return m_rsaProvider.Decrypt(data, true);
+            }
+        }
+
         private byte[] EncryptString(string message)
         {
             // Convert the parameter string into a byte array, and encrypt it, then return it
             return Encrypt(Encoding.UTF8.GetBytes(message));
         }
-        private byte[] EncryptString(string message, string recipient)
+        private byte[] EncryptString(string message, RSAParameters key)
         {
-            // Seach m_keys for a key belonging to a client of this name
-            KeyValuePair<string, RSAParameters> client = m_keys.FirstOrDefault(c => c.Key == recipient);
-            // if its found...
-            if (!client.Equals(default(KeyValuePair<string, RSAParameters>)))
-            {
-                // Get that client's key
-                RSAParameters key = client.Value;
-                // Convert the message into a byte array, encrypt it using the recipients key, and return it
-                return Encrypt(Encoding.UTF8.GetBytes(message), key);
-            }
-            // if not, return nothing
-            return null;
+            // Convert the message into a byte array, encrypt it using the recipients key, and return it
+            return Encrypt(Encoding.UTF8.GetBytes(message), key);
         }
 
         private string DecryptString(byte[] message)
         {
             // Call the decrypt method to decrypt the byte array, then convert it into a string, then return it
             return Encoding.UTF8.GetString(Decrypt(message));
+        }
+
+        private string DecryptString(byte[] message, RSAParameters key)
+        {
+
+            // Call the decrypt method to decrypt the byte array using the specified key, then convert it into a string, then return it
+            return Encoding.UTF8.GetString(Decrypt(message, key));
         }
 
         private RSAParameters FindKey(string client)
@@ -353,7 +379,7 @@ namespace ClientProj
                 return foundClient.Value;
             }
             // otherwise, return the default key
-            return default
+            return default(RSAParameters);
         }
 
             //Recieves the server's public key and sends back this' public key
@@ -372,17 +398,18 @@ namespace ClientProj
             // cast the packet to the right type
             PublicKeyPacket clientKey = (PublicKeyPacket)packet;
             // store the name and the key in local variables
-            string name = clientKey.m_name;
+            string sender = clientKey.m_name;
             RSAParameters publicKey = clientKey.m_key;
-            // search m_keys to see if we have this key all ready
-            KeyValuePair<string, RSAParameters> client = m_keys.FirstOrDefault(c => c.Key == name);
-            // if we don't... 
-            if (client.Equals(default(KeyValuePair<string, RSAParameters>)))
+            // Seach m_keys for a key belonging to a client of this name
+            RSAParameters key = FindKey(sender);
+            // if its not found...
+            if (key.Equals(default(RSAParameters)))
             {
                 // add the key and the name to m_keys
-                m_keys.TryAdd(name, publicKey);
+                m_keys.TryAdd(sender, publicKey);
                 // reciprocate the handshake, by sending a public key addressed to them. The server will change this so our name is m_name while it reroutes.
-                Send(new PublicKeyPacket(m_publicKey, name));
+                Send(new PublicKeyPacket(m_publicKey, sender));
+                Console.WriteLine("Send my end of the handshake to " + sender);
             }
             // if it was allready there, we can do nothing. This will avoid infinite shaking of hands.
         }
