@@ -165,7 +165,8 @@ namespace ClientProj
                     {
                         // Cast the ClientNamePacket to be the right type of packet class
                         ClientNamePacket clientName = (ClientNamePacket)packet;
-                        m_mainWindow.ClientUpdated(clientName.m_name, clientName.m_oldName);
+                        // Update the clients nickname in m_keys and p_clients
+                        UpdateNickname(clientName.m_name, clientName.m_oldName);
                         break;
                     }
                 case PacketType.ServerKey:
@@ -186,6 +187,11 @@ namespace ClientProj
                         break;
                     }
             }
+        }
+
+        void UpdateNickname(string name, string oldName)
+        {
+
         }
 
         #endregion
