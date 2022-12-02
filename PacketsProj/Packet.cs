@@ -31,9 +31,19 @@ namespace PacketsProj
     public class ChatMessagePacket : Packet
     {
         public string m_message;
+        public string m_sender;
+        /// <param name="message">The message to send. Sender is handled by the server</param>
         public ChatMessagePacket(string message)
         {
             m_message = message;
+            m_packetType = PacketType.CHAT_MESSAGE;
+        }
+        /// <param name="message">What is being said</param>
+        /// <param name="sender">Who is saying it. Leave blank clientside, handled by the server</param>
+        public ChatMessagePacket(string message, string sender)
+        {
+            m_message = message;
+            m_sender = sender;
             m_packetType = PacketType.CHAT_MESSAGE;
         }
     }
@@ -42,9 +52,19 @@ namespace PacketsProj
     public class EncryptedChatMessagePacket : Packet
     {
         public byte[] m_message;
+        public byte[] m_sender;
+        /// <param name="encryptedMessage">The message, encrypted with the the server's public key. Sender is handled by server</param>
         public EncryptedChatMessagePacket(byte[] encryptedMessage)
         {
             m_message = encryptedMessage;
+            m_packetType = PacketType.CHAT_MESSAGE_ENCRYPTED;
+        }
+        /// <param name="encryptedMessage">The message, encrypted with the the server's public key</param>
+        /// <param name="encryptedSender">Leave blank clientside. The sender, encrypted with the server's public key</param>
+        public EncryptedChatMessagePacket(byte[] encryptedMessage, byte[] encryptedSender)
+        {
+            m_message = encryptedMessage;
+            m_sender = encryptedSender;
             m_packetType = PacketType.CHAT_MESSAGE_ENCRYPTED;
         }
     }
@@ -54,6 +74,8 @@ namespace PacketsProj
     {
         public string m_message;
         public string m_recipient;
+        /// <param name="message">What is being said</param>
+        /// <param name="recipient">If being sent by the client: who it's addressed to, if being send by the server, who it's from</param>
         public DirectMessagePacket(string message, string recipient)
         {
             m_message = message;
@@ -67,6 +89,8 @@ namespace PacketsProj
     {
         public byte[] m_message;
         public byte[] m_recipient;
+        /// <param name="encryptedMessage">What is being said, encrypted with the recipient's public key</param>
+        /// <param name="encryptedRecipient">Who it is being said to, encrypted with the server's public key</param>
         public EncryptedDirectMessagePacket(byte[] encryptedMessage, byte[] encryptedRecipient)
         {
             m_message = encryptedMessage;

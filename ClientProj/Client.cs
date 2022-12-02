@@ -122,17 +122,18 @@ namespace ClientProj
                         // Cast the chatMessagePacket to be the right type of packet class
                         ChatMessagePacket chatMessage = (ChatMessagePacket)packet;
                         // Output the recieved message to the UI, after having cast it
-                        m_mainWindow.DisplayChat(chatMessage.m_message);
+                        m_mainWindow.DisplayChat(chatMessage.m_sender + " says: " + chatMessage.m_message);
                         break;
                     }
                 case PacketType.CHAT_MESSAGE_ENCRYPTED:
                     {
                         // Cast the recieved packet to be the right type of client name packet class
                         EncryptedChatMessagePacket encryptedChatMessage = (EncryptedChatMessagePacket)packet;
-                        // Decrypt the recieved packet's message
+                        // Decrypt the recieved packet's message and sender
                         string message = DecryptString(encryptedChatMessage.m_message);
+                        string sender = DecryptString(encryptedChatMessage.m_sender);
                         // Output the recieved message to the UI, after having cast it
-                        m_mainWindow.DisplayChat(message);
+                        m_mainWindow.DisplayChat(sender + " says: " + message);
                         break;
                     }
                 case PacketType.DIRECT_MESSAGE:

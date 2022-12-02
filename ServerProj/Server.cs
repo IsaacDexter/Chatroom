@@ -298,8 +298,6 @@ namespace ServerProj
             {
                 client.Send(new ClientJoinPacket(connectedClientPair.Value.m_name));
             }
-            // Send the client a welcoming message
-            client.Send(new ChatMessagePacket("Welcome!"));
 
             return true;
         }
@@ -355,7 +353,7 @@ namespace ServerProj
                         // Cast the recieved packet to be the right type of client name packet class
                         ChatMessagePacket chatMessage = (ChatMessagePacket)packet;
                         // Broadcast the return message as a new chat message packet back to all clients
-                        Broadcast(new ChatMessagePacket(client.m_name + " says: " + chatMessage.m_message));
+                        Broadcast(new ChatMessagePacket(chatMessage.m_message, client.m_name));
                         break;
                     }
                 case PacketType.CHAT_MESSAGE_ENCRYPTED:
@@ -364,7 +362,7 @@ namespace ServerProj
                         EncryptedChatMessagePacket encryptedChatMessage = (EncryptedChatMessagePacket)packet;
                         // Broadcast the return message as a new encrypted chat message packet back to all clients
                         string message = client.DecryptString(encryptedChatMessage.m_message);
-                        Broadcast(new ChatMessagePacket(client.m_name + " encyptedly says: " + message));
+                        EncryptedBroadcast(new ChatMessagePacket(message, client.m_name));
                         break;
                     }
                 case PacketType.DIRECT_MESSAGE:
@@ -447,7 +445,23 @@ namespace ServerProj
         {
             foreach (var connectedClient in m_clients)
             {
-                connectedClient.Value.Send(packet);
+                connectedClient.Value.Send(packet); 
+            }
+        }
+
+        /// <summary>
+        /// Sends an encrypted chat message to each client on the server
+        /// </summary>
+        /// <param name="packet">The chat message packet to send</param>
+        public void EncryptedBroadcast(ChatMessagePacket packet)
+        {
+            // For each client...
+            foreach (var connectedClientPair in m_clients)
+            {
+                ConnectedClient client = connectedClientPair.Value;
+
+                // Encrypt the message using their public key and send it
+                client.Send(new EncryptedChatMessagePacket(client.EncryptString(packet.m_message), client.EncryptString(packet.m_sender)));
             }
         }
 
