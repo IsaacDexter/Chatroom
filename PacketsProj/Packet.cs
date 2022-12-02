@@ -9,13 +9,14 @@ namespace PacketsProj
 {
     public enum PacketType
     {
-        ChatMessage,
-        EncryptedChatMessage,
-        DirectMessage,
-        EncryptedDirectMessage,
-        ClientName,
-        ServerKey,
-        PublicKey,
+        CHAT_MESSAGE,
+        CHAT_MESSAGE_ENCRYPTED,
+        DIRECT_MESSAGE,
+        DIRECT_MESSAGE_ENCRYPTED,
+        UPDATE_NICKNAME,
+        CLIENT_JOIN,
+        SERVER_KEY,
+        PUBLIC_KEY,
     }
 
     [Serializable]
@@ -31,7 +32,7 @@ namespace PacketsProj
         public ChatMessagePacket(string message)
         {
             m_message = message;
-            m_packetType = PacketType.ChatMessage;
+            m_packetType = PacketType.CHAT_MESSAGE;
         }
     }
 
@@ -42,7 +43,7 @@ namespace PacketsProj
         public EncryptedChatMessagePacket(byte[] encryptedMessage)
         {
             m_message = encryptedMessage;
-            m_packetType = PacketType.EncryptedChatMessage;
+            m_packetType = PacketType.CHAT_MESSAGE_ENCRYPTED;
         }
     }
 
@@ -55,7 +56,7 @@ namespace PacketsProj
         {
             m_message = message;
             m_recipient = recipient; 
-            m_packetType = PacketType.DirectMessage;
+            m_packetType = PacketType.DIRECT_MESSAGE;
         }
     }
 
@@ -68,7 +69,7 @@ namespace PacketsProj
         {
             m_message = encryptedMessage;
             m_recipient = encryptedRecipient;
-            m_packetType = PacketType.EncryptedDirectMessage;
+            m_packetType = PacketType.DIRECT_MESSAGE_ENCRYPTED;
         }
     }
 
@@ -82,7 +83,7 @@ namespace PacketsProj
         public ServerKeyPacket(RSAParameters publicKey)
         {
             m_key = publicKey;
-            m_packetType = PacketType.ServerKey;
+            m_packetType = PacketType.SERVER_KEY;
         }
     }
 
@@ -99,12 +100,14 @@ namespace PacketsProj
             m_key = publicKey;
             m_name = name;
 
-            m_packetType = PacketType.PublicKey;
+            m_packetType = PacketType.PUBLIC_KEY;
         }
     }
 
+    #region Naming
+
     [Serializable]
-    public class ClientNamePacket : Packet
+    public class UpdateNicknamePacket : Packet
     {
         public string m_name;
 
@@ -112,18 +115,32 @@ namespace PacketsProj
         /// When a client joins, oldname will be their current name <br/>
         /// The requests to the server to update nickname do not need the oldname, only updates from the client.</summary>
         public string m_oldName;
-        public ClientNamePacket(string name)
+        public UpdateNicknamePacket(string name)
         {
             m_name = name;
-            m_packetType = PacketType.ClientName;
-            m_oldName = name;
+            m_packetType = PacketType.UPDATE_NICKNAME;
+            m_oldName = null;
         }
 
-        public ClientNamePacket(string name, string oldName)
+        public UpdateNicknamePacket(string name, string oldName)
         {
             m_name = name;
-            m_packetType = PacketType.ClientName;
+            m_packetType = PacketType.UPDATE_NICKNAME;
             m_oldName = oldName;
         }
     }
+
+    [Serializable]
+    public class ClientJoinPacket : Packet
+    {
+        public string m_name;
+
+        public ClientJoinPacket(string name)
+        {
+            m_name = name;
+            m_packetType = PacketType.CLIENT_JOIN;
+        }
+    }
+
+    #endregion
 }

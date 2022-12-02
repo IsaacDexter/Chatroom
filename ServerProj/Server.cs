@@ -186,6 +186,42 @@ namespace ServerProj
             return m_clients.FirstOrDefault(c => c.Value.m_name == name).Value;
         }
 
+        /// <param name="client">The client to find</param>
+        /// <returns>The ID of that client. NULL if no client was found</returns>
+        public int FindClientID(ConnectedClient client)
+        {
+            return m_clients.FirstOrDefault(c => c.Value == client).Key;
+        }
+
+        #endregion
+
+        #region Updating
+
+        /// <summary>Check the clients nickname is unique, Update the clients nickname serverside and broadcast it to the clients so they can update it clientside</summary>
+        /// <param name="name">The client's new name to go by</param>
+        /// <param name="oldName">The client's original name they went by</param>
+        private void UpdateNickname(string name, string oldName)
+        {
+            // Find the ConnectedClient who made this request
+            ConnectedClient client = FindClient(oldName);
+            // If we could not find the client who made the request, return.
+            if (client != null)
+            {
+                // Check to see if client's new name is already in use...
+                if (FindClient(name) != null)
+                {
+                    // If it somehow is, set the clients name to a default one
+                    name = "Client " + FindClientID(client);
+                }
+                // Otherwise...
+                // Send the return message as a client name packet back to each client, with the current name as oldName
+                Broadcast(new UpdateNicknamePacket(name, oldName));
+                // update this clients name on the server
+                client.m_name = name;
+            }
+            
+        }
+
         #endregion
 
         #region Connecting
@@ -240,7 +276,7 @@ namespace ServerProj
             client.m_name = "Client " + clientIndex;
 
             // Update each client's client lists to recognise this new client that has joined
-            Broadcast(new ClientNamePacket(client.m_name));
+            Broadcast(new ClientJoinPacket(client.m_name));
 
             // Increase the client index
             clientIndex++;
@@ -260,7 +296,7 @@ namespace ServerProj
             // Send the client each of the pre-existing clients, including itself.
             foreach (var connectedClientPair in m_clients)
             {
-                client.Send(new ClientNamePacket(connectedClientPair.Value.m_name));
+                client.Send(new ClientJoinPacket(connectedClientPair.Value.m_name));
             }
             // Send the client a welcoming message
             client.Send(new ChatMessagePacket("Welcome!"));
@@ -314,7 +350,7 @@ namespace ServerProj
             // Switch on the type of packet (message type) recieved
             switch (packet.m_packetType)
             {
-                case PacketType.ChatMessage:
+                case PacketType.CHAT_MESSAGE:
                     {
                         // Cast the recieved packet to be the right type of client name packet class
                         ChatMessagePacket chatMessage = (ChatMessagePacket)packet;
@@ -322,7 +358,7 @@ namespace ServerProj
                         Broadcast(new ChatMessagePacket(client.m_name + " says: " + chatMessage.m_message));
                         break;
                     }
-                case PacketType.EncryptedChatMessage:
+                case PacketType.CHAT_MESSAGE_ENCRYPTED:
                     {
                         // Cast the recieved packet to be the right type of client name packet class
                         EncryptedChatMessagePacket encryptedChatMessage = (EncryptedChatMessagePacket)packet;
@@ -331,7 +367,7 @@ namespace ServerProj
                         Broadcast(new ChatMessagePacket(client.m_name + " encyptedly says: " + message));
                         break;
                     }
-                case PacketType.DirectMessage:
+                case PacketType.DIRECT_MESSAGE:
                     {
                         // Cast the recieved packet to be a direct packet
                         DirectMessagePacket directMessage = (DirectMessagePacket)packet;
@@ -345,7 +381,7 @@ namespace ServerProj
                         }
                         break;
                     }
-                case PacketType.EncryptedDirectMessage:
+                case PacketType.DIRECT_MESSAGE_ENCRYPTED:
                     {
                         // Cast the recieved packet
                         EncryptedDirectMessagePacket encryptedDirectMessage = (EncryptedDirectMessagePacket)packet;
@@ -363,17 +399,15 @@ namespace ServerProj
                         }
                         break;
                     }
-                case PacketType.ClientName:
+                case PacketType.UPDATE_NICKNAME:
                     {
                         // Cast the recieved packet to be the right type of client name packet class
-                        ClientNamePacket clientName = (ClientNamePacket)packet;
-                        // Send the return message as a client name packet back to each client, with the current name as oldName
-                        Broadcast(new ClientNamePacket(clientName.m_name, client.m_name));
-                        // update this clients name on the server
-                        client.m_name = clientName.m_name;
+                        UpdateNicknamePacket clientName = (UpdateNicknamePacket)packet;
+                        // Check the clients nickname is unique, Update the clients nickname serverside and broadcast it to the clients so they can update it clientside
+                        UpdateNickname(clientName.m_name, client.m_name);
                         break;
                     }
-                case PacketType.ServerKey:
+                case PacketType.SERVER_KEY:
                     {
                         // Cast the recieved packet to be the right type of client name packet class
                         ServerKeyPacket clientKey = (ServerKeyPacket)packet;
@@ -381,7 +415,7 @@ namespace ServerProj
                         client.m_clientKey = clientKey.m_key;
                         break;
                     }
-                case PacketType.PublicKey:
+                case PacketType.PUBLIC_KEY:
                     {
                         // Cast the recieved packet into a public key packet
                         PublicKeyPacket publicKey = (PublicKeyPacket)packet;

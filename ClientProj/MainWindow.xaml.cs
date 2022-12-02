@@ -37,6 +37,7 @@ namespace ClientProj
     /// </summary>
     public partial class MainWindow : Window
     {
+        private string[] m_invalidNames = { "", "Invalid nickname", "Nickname in use"};
 
         private int m_port;
         private IPAddress m_ip;
@@ -60,11 +61,30 @@ namespace ClientProj
         }
 
         /// <summary>
-        /// Updates the clients nickname, and refreshes the context
+        /// Checks the clients nickname is valid, and not in use, then Updates the clients nickname, and refreshes the context
         /// </summary>
         /// <param name="nickname"></param>
         private void SetNickname(string nickname)
         {
+            // If the user has entered an invalid name...
+            if (m_invalidNames.FirstOrDefault(s => s == nickname) != null)
+            {
+                // ...Set the box to red and output an error
+                NicknameBox.SelectionBrush = Brushes.Red;
+                NicknameBox.Text = "Invalid nickname";
+                NicknameBox.SelectAll();
+                return;
+            }
+            // If the user has entered a name thats in use...
+            if (m_dataContext.p_clients.FirstOrDefault(c => c == nickname) != null)
+            {
+                // ...Set the box to red and output an appropriate error
+                NicknameBox.SelectionBrush = Brushes.Red;
+                NicknameBox.Text = "Nickname in use";
+                NicknameBox.SelectAll();
+                return;
+            }
+            NicknameBox.SelectionBrush = Brushes.Gray;
             m_client.SetNickname(nickname);
         }
 
@@ -97,47 +117,40 @@ namespace ClientProj
             });
         }
 
-        /// <summary>
-        /// Calls when a certain client is updated, i.e. has their nickname changed or joined
-        /// </summary>
-        /// <param name="id"></param>
-        public void ClientUpdated(string name, string oldName)
+        /// <summary>Calls when a certain client's name is updated, i.e. has their nickname changed</summary>
+        public void UpdateClient(string name, string oldName)
         {
-            // if the client has not updated their nickname, they have joined
-            if (name == oldName)
+            // this is an already existing client updating their nickname
+            // Invoke will prevent the reading thread calling a UI function, instead allowing the UI to call it when it is safe to do so.
+            ClientList.Dispatcher.Invoke(() =>
             {
-                // Invoke will prevent the reading thread calling a UI function, instead allowing the UI to call it when it is safe to do so.
-                ClientList.Dispatcher.Invoke(() =>
-                { 
-                    // Add this new client to the clients list
-                    m_dataContext.p_clients.Add(name);
-                    //Refresh the data context so this is reflected in the display
-                    return;
-                });
-            }
-            else
-            {
-                // otherwise, this is an already existing client updating their nickname
-                // Invoke will prevent the reading thread calling a UI function, instead allowing the UI to call it when it is safe to do so.
-                ClientList.Dispatcher.Invoke(() =>
+                // Add this new client to the clients list
+                // Find the index where the clients old name was
+                var item = m_dataContext.p_clients.FirstOrDefault(c => c == oldName);
+                // If the old clients name was indeed in the list...
+                if (item != null)
                 {
-                    // Add this new client to the clients list
-                    // Find the index where the clients old name was
-                    var item = m_dataContext.p_clients.FirstOrDefault(c => c == oldName);
-                    // If the old clients name was indeed in the list...
-                    if (item != null)
-                    {
-                        int i = m_dataContext.p_clients.IndexOf(item);
-                        // ...Set it to the new one! Otherwise, do nothing, as something is wrong.
-                        m_dataContext.p_clients[i] = name;
-                    }
-                    //Refresh the data context so this is reflected in the display
-                    return;
-                });
-            }
-            
+                    int i = m_dataContext.p_clients.IndexOf(item);
+                    // ...Set it to the new one! Otherwise, do nothing, as something is wrong.
+                    m_dataContext.p_clients[i] = name;
+                }
+                //Refresh the data context so this is reflected in the display
+                return;
+            });
         }
 
+        public void AddClient(string name)
+        {
+            // the client has not updated their nickname, they have joined
+            // Invoke will prevent the reading thread calling a UI function, instead allowing the UI to call it when it is safe to do so.
+            ClientList.Dispatcher.Invoke(() =>
+            {
+                // Add this new client to the clients list
+                m_dataContext.p_clients.Add(name);
+                //Refresh the data context so this is reflected in the display
+                return;
+            });
+        }
 
         public MainWindow(Client client)
         {
@@ -155,11 +168,19 @@ namespace ClientProj
 
             //define interaction events
             SendButton.Click += SendButton_Click;
-            NicknameBox.TextChanged += NicknameBox_TextChanged;
+            NicknameBox.KeyUp += NicknameBox_KeyUp;
             EncryptionBox.Click += EncryptionBox_Click;
             IPBox.TextChanged += IPBox_TextChanged;
             PortBox.TextChanged += PortBox_TextChanged;
             StartGameButton.Click += StartGameButton_Click;
+        }
+
+        private void NicknameBox_KeyUp(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                SetNickname(NicknameBox.Text);
+            }
         }
 
         private void EncryptionBox_Click(object sender, RoutedEventArgs e)
@@ -197,16 +218,6 @@ namespace ClientProj
             {
                 m_ip = ip;
             }
-        }
-
-
-
-        /// <summary>
-        /// When the nickname is changed, update the internal and displayed client lists to refelect this
-        /// </summary>
-        private void NicknameBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            SetNickname(NicknameBox.Text);
         }
 
         /// <summary>

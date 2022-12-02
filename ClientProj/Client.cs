@@ -117,7 +117,7 @@ namespace ClientProj
             // Switch on the type of packet (message type) recieved
             switch (packet.m_packetType)
             {
-                case PacketType.ChatMessage:
+                case PacketType.CHAT_MESSAGE:
                     {
                         // Cast the chatMessagePacket to be the right type of packet class
                         ChatMessagePacket chatMessage = (ChatMessagePacket)packet;
@@ -125,7 +125,7 @@ namespace ClientProj
                         m_mainWindow.DisplayChat(chatMessage.m_message);
                         break;
                     }
-                case PacketType.EncryptedChatMessage:
+                case PacketType.CHAT_MESSAGE_ENCRYPTED:
                     {
                         // Cast the recieved packet to be the right type of client name packet class
                         EncryptedChatMessagePacket encryptedChatMessage = (EncryptedChatMessagePacket)packet;
@@ -135,7 +135,7 @@ namespace ClientProj
                         m_mainWindow.DisplayChat(message);
                         break;
                     }
-                case PacketType.DirectMessage:
+                case PacketType.DIRECT_MESSAGE:
                     {
                         // Cast the packet to a direct message
                         DirectMessagePacket directMessage = (DirectMessagePacket)packet;
@@ -143,7 +143,7 @@ namespace ClientProj
                         m_mainWindow.DisplayMessage(directMessage.m_message, directMessage.m_recipient);
                         break;
                     }
-                case PacketType.EncryptedDirectMessage:
+                case PacketType.DIRECT_MESSAGE_ENCRYPTED:
                     {
                         // Cast the recieved packet to be the right type of client name packet class
                         EncryptedDirectMessagePacket encryptedDirectMessage = (EncryptedDirectMessagePacket)packet;
@@ -162,21 +162,28 @@ namespace ClientProj
                         m_mainWindow.DisplayMessage(message, sender);
                         break;
                     }
-                case PacketType.ClientName:
+                case PacketType.UPDATE_NICKNAME:
                     {
                         // Cast the ClientNamePacket to be the right type of packet class
-                        ClientNamePacket clientName = (ClientNamePacket)packet;
+                        UpdateNicknamePacket clientName = (UpdateNicknamePacket)packet;
                         // Update the clients nickname in m_keys and p_clients
                         UpdateNickname(clientName.m_name, clientName.m_oldName);
                         break;
                     }
-                case PacketType.ServerKey:
+                case PacketType.CLIENT_JOIN:
+                    {
+                        ClientJoinPacket newClient = (ClientJoinPacket)packet;
+                        // Add the client into p_clients
+                        m_mainWindow.AddClient(newClient.m_name);
+                        break;
+                    }
+                case PacketType.SERVER_KEY:
                     {
                         // Server key was recieved
                         ClientServerHandshake(packet);
                         break;
                     }
-                case PacketType.PublicKey:
+                case PacketType.PUBLIC_KEY:
                     {
                         // Another clients key was recieved
                         ClientClientHandshake(packet);
@@ -192,21 +199,17 @@ namespace ClientProj
         void UpdateNickname(string name, string oldName)
         {
             // Update the nickname in the window, the one that is shown to the screen
-            m_mainWindow.ClientUpdated(name, oldName);
+            m_mainWindow.UpdateClient(name, oldName);
             // Update the nickname in m_keys, the dictionary containing the client keys, but only if they already were in there! we only store the keys of clients we wish to directly communicate with 
-            // if the client has updated their nickname, they have not just joined
-            if (name != oldName)
+            // Seach m_keys for the client of the old name name
+            RSAParameters key = FindKey(oldName);
+            // Check to see if we had that client in m_keys by attempting to remove it
+            if (m_keys.TryRemove(key, out _))
             {
-                // Seach m_keys for the client of the old name name
-                RSAParameters key = FindKey(oldName);
-                // Check to see if we had that client in m_keys by attempting to remove it
-                if (m_keys.TryRemove(key, out _))
-                {
-                    // if the key pair was removed successfully, that means we had that client in m_keys, so attempt to add a new item, being the same key and a different name.
-                    m_keys.TryAdd(key, name);
-                }
-                // If we didnt have the client, we wouldn't want to add its name with the default key, so do nothing.
+                // if the key pair was removed successfully, that means we had that client in m_keys, so attempt to add a new item, being the same key and a different name.
+                m_keys.TryAdd(key, name);
             }
+            // If we didnt have the client, we wouldn't want to add its name with the default key, so do nothing.
         }
 
         #endregion
@@ -216,7 +219,7 @@ namespace ClientProj
         public void SetNickname(string nickname)
         {
             // Instanciate a new ChatMessagePacket from the string sent from the UI
-            ClientNamePacket clientName = new ClientNamePacket(nickname);
+            UpdateNicknamePacket clientName = new UpdateNicknamePacket(nickname);
             Send(clientName);
         }
 
