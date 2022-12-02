@@ -25,6 +25,8 @@ namespace PacketsProj
         public PacketType m_packetType { get; protected set; }
     }
 
+    #region Messaging
+
     [Serializable]
     public class ChatMessagePacket : Packet
     {
@@ -73,6 +75,10 @@ namespace PacketsProj
         }
     }
 
+    #endregion
+
+    #region Keys
+
     /// <summary>
     /// A packet that contains the public key of a server or client, to be sent to the server or sent to the client during their initial handshake
     /// </summary>
@@ -103,6 +109,8 @@ namespace PacketsProj
             m_packetType = PacketType.PUBLIC_KEY;
         }
     }
+
+    #endregion
 
     #region Naming
 

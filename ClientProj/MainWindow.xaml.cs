@@ -46,6 +46,8 @@ namespace ClientProj
 
         private DataObject m_dataContext;
 
+        #region Sending
+
         /// <summary>
         /// sends the message to the data context and refreshes the context
         /// </summary>
@@ -59,6 +61,20 @@ namespace ClientProj
         {
             m_client.SendPrivateMessage(message, recipient);
         }
+
+        /// <summary>
+        /// Sends a challenge from challenger to challengee. The game is nonfunctional and this code is dummy
+        /// </summary>
+        private void SendChallenge(string challengee)
+        {
+            //Add game functionality later
+            string challenge = challengee + ", I challenge you!";
+            m_client.SendChatMessage(challenge);
+        }
+
+        #endregion
+
+        #region Setting
 
         /// <summary>
         /// Checks the clients nickname is valid, and not in use, then Updates the clients nickname, and refreshes the context
@@ -88,16 +104,9 @@ namespace ClientProj
             m_client.SetNickname(nickname);
         }
 
-        /// <summary>
-        /// Sends a challenge from challenger to challengee. The game is nonfunctional and this code is dummy
-        /// </summary>
-        private void SendChallenge(string challengee)
-        {
-            //Add game functionality later
-            string challenge = challengee + ", I challenge you!";
-            m_client.SendChatMessage(challenge);
-        }
+        #endregion
 
+        #region Displaying
 
         public void DisplayChat(string message)
         {
@@ -116,6 +125,10 @@ namespace ClientProj
                 m_dataContext.p_messages.Add(sender + " says: " + message);
             });
         }
+
+        #endregion
+
+        #region Updating
 
         /// <summary>Calls when a certain client's name is updated, i.e. has their nickname changed</summary>
         public void UpdateClient(string name, string oldName)
@@ -152,6 +165,8 @@ namespace ClientProj
             });
         }
 
+        #endregion
+
         public MainWindow(Client client)
         {
             //Set up Client technical information
@@ -174,6 +189,8 @@ namespace ClientProj
             PortBox.TextChanged += PortBox_TextChanged;
             StartGameButton.Click += StartGameButton_Click;
         }
+
+        #region Events
 
         private void NicknameBox_KeyUp(object sender, KeyEventArgs e)
         {
@@ -263,6 +280,8 @@ namespace ClientProj
             }
             
         }
+
+        #endregion
 
     }
 }
