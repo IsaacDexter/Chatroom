@@ -19,20 +19,21 @@ namespace ClientProj
     /// </summary>
     public class Client
     {
+
         private TcpClient m_tcpClient;
         private NetworkStream m_stream;
         private BinaryReader m_reader;
         private BinaryWriter m_writer;
         private BinaryFormatter m_formatter;
         /// <summary>Contains a key value pair of names and associated public keys connected to those names. It is vital that these names are updated with p_clients so we don't end up with redundancies.</summary>
-        private ConcurrentDictionary<string, RSAParameters> m_keys;
+        private ConcurrentDictionary<RSAParameters, string> m_keys;
 
         private MainWindow m_mainWindow;
         public Client()
         {
             // Create a new instance of TcpClient
             m_tcpClient = new TcpClient();
-            m_keys = new ConcurrentDictionary<string, RSAParameters>();
+            m_keys = new ConcurrentDictionary<RSAParameters, string>();
 
             InitialiseEncryption();
         }
@@ -178,7 +179,6 @@ namespace ClientProj
                 case PacketType.PublicKey:
                     {
                         // Another clients key was recieved
-                        Console.WriteLine("Recieved their end of the handshake from someone");
                         ClientClientHandshake(packet);
                         break;
                     }
@@ -191,7 +191,22 @@ namespace ClientProj
 
         void UpdateNickname(string name, string oldName)
         {
-
+            // Update the nickname in the window, the one that is shown to the screen
+            m_mainWindow.ClientUpdated(name, oldName);
+            // Update the nickname in m_keys, the dictionary containing the client keys, but only if they already were in there! we only store the keys of clients we wish to directly communicate with 
+            // if the client has updated their nickname, they have not just joined
+            if (name != oldName)
+            {
+                // Seach m_keys for the client of the old name name
+                RSAParameters key = FindKey(oldName);
+                // Check to see if we had that client in m_keys by attempting to remove it
+                if (m_keys.TryRemove(key, out _))
+                {
+                    // if the key pair was removed successfully, that means we had that client in m_keys, so attempt to add a new item, being the same key and a different name.
+                    m_keys.TryAdd(key, name);
+                }
+                // If we didnt have the client, we wouldn't want to add its name with the default key, so do nothing.
+            }
         }
 
         #endregion
@@ -254,7 +269,6 @@ namespace ClientProj
                 {
                     // If we dont, send them a handshake
                     Send(new PublicKeyPacket(m_publicKey, recipient));
-                    Console.WriteLine("Send my end of the handshake to " + recipient);
                     // Wait until they've repsonded
                     SpinWait.SpinUntil(() => { return !(recipientKey = FindKey(recipient)).Equals(default(RSAParameters)); });
                 }
@@ -374,15 +388,15 @@ namespace ClientProj
             return Encoding.UTF8.GetString(Decrypt(message, key));
         }
 
-        private RSAParameters FindKey(string client)
+        private RSAParameters FindKey(string name)
         {
             // Seach m_keys for a key belonging to a client of this name
-            KeyValuePair<string, RSAParameters> foundClient = m_keys.FirstOrDefault(c => c.Key == client);
+            KeyValuePair<RSAParameters, string> foundClient = m_keys.FirstOrDefault(c => c.Value == name);
             // if its found...
-            if (!client.Equals(default(KeyValuePair<string, RSAParameters>)))
+            if (!foundClient.Equals(default(KeyValuePair<RSAParameters, string>)))
             {
                 // Get that client's key
-                return foundClient.Value;
+                return foundClient.Key;
             }
             // otherwise, return the default key
             return default(RSAParameters);
@@ -412,10 +426,13 @@ namespace ClientProj
             if (key.Equals(default(RSAParameters)))
             {
                 // add the key and the name to m_keys
-                m_keys.TryAdd(sender, publicKey);
+                if (!m_keys.TryAdd(publicKey, sender))
+                {
+                    // we failed to add the key
+                    Console.WriteLine("Failed to add " + sender + "'s key!");
+                }
                 // reciprocate the handshake, by sending a public key addressed to them. The server will change this so our name is m_name while it reroutes.
                 Send(new PublicKeyPacket(m_publicKey, sender));
-                Console.WriteLine("Send my end of the handshake to " + sender);
             }
             // if it was allready there, we can do nothing. This will avoid infinite shaking of hands.
         }
