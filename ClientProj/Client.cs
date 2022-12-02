@@ -26,14 +26,14 @@ namespace ClientProj
         private BinaryWriter m_writer;
         private BinaryFormatter m_formatter;
         /// <summary>Contains a key value pair of names and associated public keys connected to those names. It is vital that these names are updated with p_clients so we don't end up with redundancies.</summary>
-        private ConcurrentDictionary<RSAParameters, string> m_keys;
+        private ConcurrentDictionary<string, RSAParameters> m_keys;
 
         private MainWindow m_mainWindow;
         public Client()
         {
             // Create a new instance of TcpClient
             m_tcpClient = new TcpClient();
-            m_keys = new ConcurrentDictionary<RSAParameters, string>();
+            m_keys = new ConcurrentDictionary<string, RSAParameters>();
 
             InitialiseEncryption();
         }
@@ -204,10 +204,10 @@ namespace ClientProj
             // Seach m_keys for the client of the old name name
             RSAParameters key = FindKey(oldName);
             // Check to see if we had that client in m_keys by attempting to remove it
-            if (m_keys.TryRemove(key, out _))
+            if (m_keys.TryRemove(oldName, out _))
             {
                 // if the key pair was removed successfully, that means we had that client in m_keys, so attempt to add a new item, being the same key and a different name.
-                m_keys.TryAdd(key, name);
+                m_keys.TryAdd(name, key);
             }
             // If we didnt have the client, we wouldn't want to add its name with the default key, so do nothing.
         }
@@ -394,12 +394,12 @@ namespace ClientProj
         private RSAParameters FindKey(string name)
         {
             // Seach m_keys for a key belonging to a client of this name
-            KeyValuePair<RSAParameters, string> foundClient = m_keys.FirstOrDefault(c => c.Value == name);
+            KeyValuePair<string, RSAParameters> foundClient = m_keys.FirstOrDefault(c => c.Key == name);
             // if its found...
             if (!foundClient.Equals(default(KeyValuePair<RSAParameters, string>)))
             {
                 // Get that client's key
-                return foundClient.Key;
+                return foundClient.Value;
             }
             // otherwise, return the default key
             return default(RSAParameters);
@@ -429,7 +429,7 @@ namespace ClientProj
             if (key.Equals(default(RSAParameters)))
             {
                 // add the key and the name to m_keys
-                if (!m_keys.TryAdd(publicKey, sender))
+                if (!m_keys.TryAdd(sender, publicKey))
                 {
                     // we failed to add the key
                     Console.WriteLine("Failed to add " + sender + "'s key!");
