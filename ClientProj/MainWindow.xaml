@@ -7,7 +7,7 @@
         xmlns:System="clr-namespace:System;assembly=System.Runtime" xmlns:Collections="clr-namespace:System.Collections;assembly=System.Runtime" xmlns:VisualBasic="clr-namespace:Microsoft.VisualBasic;assembly=Microsoft.VisualBasic.Core" x:Class="ClientProj.MainWindow"
         mc:Ignorable="d"
         Title="MainWindow" Height="485" Width="830">
-    <Grid Background="#FFA3EFA0">
+    <Grid x:Name="Background" Background="#FFA3EFA0">
         <Grid Background="#FFFDD5D5" Margin="10,10,156,378" Width="634" Height="46">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition/>
@@ -17,9 +17,10 @@
             <TextBox x:Name="PortBox" HorizontalAlignment="Left" Margin="218,0,0,0" TextWrapping="Wrap" Text="4444" VerticalAlignment="Center" Width="50" Height="26"/>
             <Label Content="Port:" HorizontalAlignment="Left" Margin="179,0,0,0" VerticalAlignment="Center" Height="26" Width="34"/>
             <Label Content="Server IP:" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Height="26" Width="59"/>
-            <Label Content="Nickname:" HorizontalAlignment="Left" Margin="329,0,0,0" VerticalAlignment="Center" Width="70" Height="26"/>
-            <TextBox x:Name="NicknameBox" HorizontalAlignment="Left" Margin="404,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center" Width="100" Height="26"/>
-            <CheckBox x:Name="EncryptionBox" Content="Enable Encryption" HorizontalAlignment="Left" Margin="509,0,0,0" VerticalAlignment="Center" Width="115" Height="26" IsChecked="True"/>
+            <Label Content="Nickname:" HorizontalAlignment="Left" Margin="363,0,0,0" VerticalAlignment="Center" Width="70" Height="26"/>
+            <TextBox x:Name="NicknameBox" HorizontalAlignment="Left" Margin="438,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center" Width="100" Height="26"/>
+            <CheckBox x:Name="EncryptionBox" Content="Encrypted?" HorizontalAlignment="Left" Margin="543,0,0,0" VerticalAlignment="Center" Width="81" Height="26" IsChecked="True"/>
+            <Button x:Name="ConnectButton" Content="Connect" HorizontalAlignment="Left" VerticalAlignment="Center" Height="26" Width="85" Margin="273,0,0,0"/>
         </Grid>
         <Grid Background="#FFFFF0AA" Width="780" Height="44" Margin="10,380,10,10">
             <Grid.ColumnDefinitions>

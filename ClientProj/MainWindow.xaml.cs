@@ -180,11 +180,11 @@ namespace ClientProj
 
         #endregion
 
-        public MainWindow(Client client)
+        public MainWindow(Client client, bool connected, string ip = "127.0.0.1", int port = 4444)
         {
             //Set up Client technical information
-            m_ip = IPAddress.Parse("127.0.0.1");
-            m_port = 4444;
+            m_ip = IPAddress.Parse(ip);
+            m_port = port;
 
             //Instanciate the data context from the data object class. This is used in this file to update fields, and in the XAML file as DataContext
             m_dataContext = new DataObject();
@@ -192,7 +192,16 @@ namespace ClientProj
 
             //Initialise the visual component
             InitializeComponent();
+
+            if (!connected)
+            {
+                Background.Background = Brushes.Salmon;
+                DisplayChat("Not currently connected. Press connect to attempt a connection");
+            }
+
             m_client = client;
+            IPBox.Text = ip;
+            PortBox.Text = port.ToString();
 
             //define interaction events
             SendButton.Click += SendButton_Click;
@@ -201,6 +210,7 @@ namespace ClientProj
             IPBox.KeyUp += IPBox_KeyUp;
             PortBox.KeyUp += PortBox_KeyUp;
             StartGameButton.Click += StartGameButton_Click;
+            ConnectButton.Click += ConnectButton_Click;
         }
 
         #region Events
@@ -232,53 +242,60 @@ namespace ClientProj
         {
             if (e.Key == Key.Enter)
             {
-                int port;
+                int port = -1;
                 string string_port = PortBox.Text;
                 bool validatePort = int.TryParse(string_port, out port);
-                if (validatePort)
+                if (validatePort && port > 1024 && port < 65366)
                 {
-                    m_port = port;
-                    //Attempt to reconnect to the new port
-                    if (m_client.Reconnect(m_ip, m_port))   //Connection was successful!
-                    {
-                        DisplayChat("Connection to " + m_ip + ":" + m_port + " was successful.");
-                    }
-                    else //Connection failed
-                    {
-                        DisplayChat("Connection to " + m_ip + ":" + m_port + " failed.");
-                    }
+                    PortBox.Background = Brushes.LightGreen; //Inform the user the port was valid through a color change
+                    m_port = port;  
                 }
                 else //port was invalid
                 {
-                    DisplayChat(m_port + " is not a valid port. Connection unchanged.");
+                    DisplayChat(string_port + " is not a valid port.");
+                    PortBox.Background = Brushes.Salmon;  //Inform the user the port was invalid
                 }
+            }
+            else
+            {
+                PortBox.Background = Brushes.LightSalmon; //Inform the user that the port is not currently set
             }
         }
 
         private void IPBox_KeyUp(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Enter)
+            if (e.Key == Key.Enter) //If they're entering a new ip....
             {
                 IPAddress ip;
-                string ipAddress = IPBox.Text;
-                bool validateIp = IPAddress.TryParse(ipAddress, out ip);
+                string string_ip = IPBox.Text;
+                bool validateIp = IPAddress.TryParse(string_ip, out ip);
                 if (validateIp)
                 {
-                    m_ip = ip;
-                    //Attempt to reconnect to the new port
-                    if (m_client.Reconnect(m_ip, m_port))   //Connection was successful!
-                    {
-                        DisplayChat("Connection to " + m_ip + ":" + m_port + " was successful.");
-                    }
-                    else //Connection failed
-                    {
-                        DisplayChat("Connection to " + m_ip + ":" + m_port + " failed.");
-                    }
+                    IPBox.Background = Brushes.LightGreen;  //Show the user they've entered an ip
+                    m_ip = ip; 
                 }
                 else //Ip was invalid
                 {
-                    DisplayChat(m_ip + " is not a valid IP. Connection unchanged.");
+                    DisplayChat(string_ip + " is not a valid IP.");
+                    IPBox.Background = Brushes.Salmon; //Inform the user the IP was invalid
                 }
+            }
+            else
+            {
+                IPBox.Background = Brushes.LightSalmon; //Inform the user through the user of color that the ip is not yet validated
+            }
+        }
+
+        private void ConnectButton_Click(object sender, RoutedEventArgs e)
+        {
+            //Attempt to reconnect to the new port
+            if (m_client.Reconnect(m_ip, m_port))   //Connection was successful!
+            {
+                DisplayChat("Connection to " + m_ip + ":" + m_port + " was successful.");
+            }
+            else //Connection failed
+            {
+                DisplayChat("Connection to " + m_ip + ":" + m_port + " failed.");
             }
         }
 
@@ -327,6 +344,5 @@ namespace ClientProj
         }
 
         #endregion
-
     }
 }

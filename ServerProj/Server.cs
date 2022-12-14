@@ -485,13 +485,36 @@ namespace ServerProj
         static void Main(string[] args)
         {
             Console.WriteLine("Server");
-
-            //create a new instance of the Server using the IP Address 127.0.0.1 (this is a loopback address so that we can run the connection on our local machines) and use the port 4444
-            Server server = new Server(IPAddress.Parse("127.0.0.1"), 4444);
-            //Start and stop the server
-            server.Start();
-            server.Stop();
-
+            Console.WriteLine("Enter server port:");
+            int port = -1;
+            bool valid = false;
+            while (!valid)
+            {
+                while (!valid)
+                {
+                    valid = int.TryParse(Console.ReadLine(), out port);
+                    valid = port < 65536;
+                    valid = port > 1024;
+                    if (!valid)
+                    {
+                        Console.WriteLine("Invalid port. Ports range from 1024 - 65536");
+                    }
+                }
+                try
+                {
+                    //create a new instance of the Server using the IP Address 127.0.0.1 (this is a loopback address so that we can run the connection on our local machines) and use the port 4444
+                    Server server = new Server(IPAddress.Parse("127.0.0.1"), port);
+                    valid = true;
+                    //Start and stop the server
+                    server.Start();
+                    server.Stop();
+                }
+                catch (Exception)
+                {
+                    valid = false;
+                    Console.WriteLine("Could not create server.");
+                }
+            }
             Console.ReadLine();
         }
     }
