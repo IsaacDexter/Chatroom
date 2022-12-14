@@ -192,6 +192,11 @@ namespace ClientProj
 
         #region Events
 
+        private void OnClosing()
+        {
+            m_client.Disconnect();
+            Close();
+        }
         private void NicknameBox_KeyUp(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)

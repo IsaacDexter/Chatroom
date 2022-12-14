@@ -64,16 +64,24 @@ namespace ServerProj
             // Create a lock using m_readLock
             lock (m_readLock)
             {
-                // Check the size of the array is not -1 and store it to an int
-                int numberOfBytes;
-                if ((numberOfBytes = m_reader.ReadInt32()) != -1)
+                try
                 {
-                    // Use the number of bytes to read the correct number of bytes and store in the buffer
-                    byte[] buffer = m_reader.ReadBytes(numberOfBytes);
-                    // Create a new memory stream and pass the byte array into the constructor
-                    MemoryStream memoryStream = new MemoryStream(buffer);
-                    // use the formatter to deserialise the data in the memory stream, cast it to a packet and return it.
-                    return m_formatter.Deserialize(memoryStream) as Packet;
+                    // Check the size of the array is not -1 and store it to an int
+                    int numberOfBytes;
+                    if ((numberOfBytes = m_reader.ReadInt32()) != -1)
+                    {
+                        // Use the number of bytes to read the correct number of bytes and store in the buffer
+                        byte[] buffer = m_reader.ReadBytes(numberOfBytes);
+                        // Create a new memory stream and pass the byte array into the constructor
+                        MemoryStream memoryStream = new MemoryStream(buffer);
+                        // use the formatter to deserialise the data in the memory stream, cast it to a packet and return it.
+                        return m_formatter.Deserialize(memoryStream) as Packet;
+                    }
+                }
+                catch   //Handle on if the client has disconnected
+                {
+                    Console.WriteLine(m_name + " disconnected.");
+                    return null;
                 }
             }
             return null;

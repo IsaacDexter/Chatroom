@@ -27,6 +27,7 @@ namespace ClientProj
         private BinaryFormatter m_formatter;
         /// <summary>Contains a key value pair of names and associated public keys connected to those names. It is vital that these names are updated with p_clients so we don't end up with redundancies.</summary>
         private ConcurrentDictionary<string, RSAParameters> m_keys;
+        private Thread m_readThread;
 
         private MainWindow m_mainWindow;
         public Client()
@@ -67,6 +68,11 @@ namespace ClientProj
             }
         }
 
+        public void Disconnect()
+        {
+            m_tcpClient.Close();
+        }
+
         public void Run()
         {
             // Create the instance of main window
@@ -95,15 +101,22 @@ namespace ClientProj
             // While the client is connected...
             while (m_tcpClient.Connected)
             {
-                // Write the messages to the console
-                // Don't forget that readline is a blocking method, the client could get stuck here if nothing is sent from the server.
-                // Check the size of the array is not -1 and store it to an int
-                int numberOfBytes;
-                if ((numberOfBytes = m_reader.ReadInt32()) != -1)
+                try
                 {
-                    // Use the number of bytes to read the correct number of bytes and store in the buffer
-                    byte[] buffer = m_reader.ReadBytes(numberOfBytes);
-                    ProcessServerResponse(buffer);
+                    // Write the messages to the console
+                    // Don't forget that readline is a blocking method, the client could get stuck here if nothing is sent from the server.
+                    // Check the size of the array is not -1 and store it to an int
+                    int numberOfBytes;
+                    if ((numberOfBytes = m_reader.ReadInt32()) != -1)
+                    {
+                        // Use the number of bytes to read the correct number of bytes and store in the buffer
+                        byte[] buffer = m_reader.ReadBytes(numberOfBytes);
+                        ProcessServerResponse(buffer);
+                    }
+                }
+                catch
+                {
+                    Environment.Exit(0);
                 }
             }
         }
