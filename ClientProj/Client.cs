@@ -92,8 +92,22 @@ namespace ClientProj
         /// <summary>Calls m_tcpClient.Close() and Dispose(). </summary>
         private void Disconnect()
         {
-            m_tcpClient.Close();
-            m_tcpClient.Dispose();
+            if (m_tcpClient != null)
+            {
+                m_tcpClient.Close();
+                m_tcpClient.Dispose();
+                m_tcpClient = null;
+            }
+            if (m_writer != null)
+            {
+                m_writer.Close();
+                m_writer = null;
+            }
+            if (m_reader != null)
+            {
+                m_reader.Close();
+                m_reader = null;
+            }
         }
 
         /// <summary>Calls when the wpf is closed. Calls disconnect then exits.</summary>
@@ -277,18 +291,22 @@ namespace ClientProj
 
         public void Send(Packet packet)
         {
-            // Create a new memory stream object used to store binary data.
-            MemoryStream memoryStream = new MemoryStream();
-            // Use the binary formatter to serialise message, and store this into the memory stream
-            m_formatter.Serialize(memoryStream, packet);
-            // Get the byte array from the memory stream and store into buffer
-            byte[] buffer = memoryStream.GetBuffer();
-            // Write the length of this array to m_writer, so the size can be checked on the recieving end
-            m_writer.Write(buffer.Length);
-            // Write the buffer to m_writer
-            m_writer.Write(buffer);
-            // Flush the writer
-            m_writer.Flush();
+            //Check the writer exists, i.e. the client is connected to anything
+            if (m_writer != null)
+            {
+                // Create a new memory stream object used to store binary data.
+                MemoryStream memoryStream = new MemoryStream();
+                // Use the binary formatter to serialise message, and store this into the memory stream
+                m_formatter.Serialize(memoryStream, packet);
+                // Get the byte array from the memory stream and store into buffer
+                byte[] buffer = memoryStream.GetBuffer();
+                // Write the length of this array to m_writer, so the size can be checked on the recieving end
+                m_writer.Write(buffer.Length);
+                // Write the buffer to m_writer
+                m_writer.Write(buffer);
+                // Flush the writer
+                m_writer.Flush();
+            }
         }
 
         /// <summary>Builds a chat message packet or encrypted chat message packet and calls the send function to send it across the server</summary>
