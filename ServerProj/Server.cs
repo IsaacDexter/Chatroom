@@ -84,6 +84,7 @@ namespace ServerProj
                     return null;
                 }
             }
+            Console.WriteLine(m_name + " disconnected.");
             return null;
         }
 
