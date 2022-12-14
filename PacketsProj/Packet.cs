@@ -15,6 +15,7 @@ namespace PacketsProj
         DIRECT_MESSAGE_ENCRYPTED,
         UPDATE_NICKNAME,
         CLIENT_JOIN,
+        CLIENT_LEAVE,
         SERVER_KEY,
         PUBLIC_KEY,
     }
@@ -171,6 +172,18 @@ namespace PacketsProj
         {
             m_name = name;
             m_packetType = PacketType.CLIENT_JOIN;
+        }
+    }
+
+    [Serializable]
+    public class ClientLeavePacket : Packet
+    {
+        public string m_name;
+
+        public ClientLeavePacket(string name)
+        {
+            m_name = name;
+            m_packetType = PacketType.CLIENT_LEAVE;
         }
     }
 

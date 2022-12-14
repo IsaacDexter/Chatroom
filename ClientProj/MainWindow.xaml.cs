@@ -165,6 +165,19 @@ namespace ClientProj
             });
         }
 
+        public void RemoveClient(string name)
+        {
+            // the client has not updated their nickname, they have left
+            // Invoke will prevent the reading thread calling a UI function, instead allowing the UI to call it when it is safe to do so.
+            ClientList.Dispatcher.Invoke(() =>
+            {
+                // remove this client from the clients list
+                m_dataContext.p_clients.Remove(name);
+                //Refresh the data context so this is reflected in the display
+                return;
+            });
+        }
+
         #endregion
 
         public MainWindow(Client client)
@@ -185,8 +198,8 @@ namespace ClientProj
             SendButton.Click += SendButton_Click;
             NicknameBox.KeyUp += NicknameBox_KeyUp;
             EncryptionBox.Click += EncryptionBox_Click;
-            IPBox.TextChanged += IPBox_TextChanged;
-            PortBox.TextChanged += PortBox_TextChanged;
+            IPBox.KeyUp += IPBox_KeyUp;
+            PortBox.KeyUp += PortBox_KeyUp;
             StartGameButton.Click += StartGameButton_Click;
         }
 
@@ -194,7 +207,7 @@ namespace ClientProj
 
         private void OnClosing()
         {
-            m_client.Disconnect();
+            m_client.Close();
             Close();
         }
         private void NicknameBox_KeyUp(object sender, KeyEventArgs e)
@@ -214,31 +227,58 @@ namespace ClientProj
         {
             SendChallenge(OpponentBox.Text);
         }
-        /// <summary>
-        /// When the port box is updated, parse its content as an int and write it to m_port
-        /// </summary>
-        private void PortBox_TextChanged(object sender, TextChangedEventArgs e)
+        
+        private void PortBox_KeyUp(object sender, KeyEventArgs e)
         {
-            int port;
-            string string_port = PortBox.Text;
-            bool validatePort = int.TryParse(string_port, out port);
-            if (validatePort)
+            if (e.Key == Key.Enter)
             {
-                m_port = port;
+                int port;
+                string string_port = PortBox.Text;
+                bool validatePort = int.TryParse(string_port, out port);
+                if (validatePort)
+                {
+                    m_port = port;
+                    //Attempt to reconnect to the new port
+                    if (m_client.Reconnect(m_ip, m_port))   //Connection was successful!
+                    {
+                        DisplayChat("Connection to " + m_ip + ":" + m_port + " was successful.");
+                    }
+                    else //Connection failed
+                    {
+                        DisplayChat("Connection to " + m_ip + ":" + m_port + " failed.");
+                    }
+                }
+                else //port was invalid
+                {
+                    DisplayChat(m_port + " is not a valid port. Connection unchanged.");
+                }
             }
         }
 
-        /// <summary>
-        /// When the ip box is updated, parse its content as an IP and write it to m_ip. Needs work, methinks.
-        /// </summary>
-        private void IPBox_TextChanged(object sender, TextChangedEventArgs e)
+        private void IPBox_KeyUp(object sender, KeyEventArgs e)
         {
-            IPAddress ip;
-            string ipAddress = IPBox.Text;
-            bool validateIp = IPAddress.TryParse(ipAddress, out ip);
-            if (validateIp)
+            if (e.Key == Key.Enter)
             {
-                m_ip = ip;
+                IPAddress ip;
+                string ipAddress = IPBox.Text;
+                bool validateIp = IPAddress.TryParse(ipAddress, out ip);
+                if (validateIp)
+                {
+                    m_ip = ip;
+                    //Attempt to reconnect to the new port
+                    if (m_client.Reconnect(m_ip, m_port))   //Connection was successful!
+                    {
+                        DisplayChat("Connection to " + m_ip + ":" + m_port + " was successful.");
+                    }
+                    else //Connection failed
+                    {
+                        DisplayChat("Connection to " + m_ip + ":" + m_port + " failed.");
+                    }
+                }
+                else //Ip was invalid
+                {
+                    DisplayChat(m_ip + " is not a valid IP. Connection unchanged.");
+                }
             }
         }
 

@@ -13,7 +13,7 @@
                 <ColumnDefinition/>
                 <ColumnDefinition Width="0*"/>
             </Grid.ColumnDefinitions>
-            <TextBox x:Name="IPBox" HorizontalAlignment="Left" Margin="74,0,0,0" TextWrapping="Wrap" Text="127.0.0.1" VerticalAlignment="Center" Width="100" Height="26" TextChanged="IPBox_TextChanged" TextAlignment="Left" MaxLines="1"/>
+            <TextBox x:Name="IPBox" HorizontalAlignment="Left" Margin="74,0,0,0" TextWrapping="Wrap" Text="127.0.0.1" VerticalAlignment="Center" Width="100" Height="26" TextAlignment="Left" MaxLines="1"/>
             <TextBox x:Name="PortBox" HorizontalAlignment="Left" Margin="218,0,0,0" TextWrapping="Wrap" Text="4444" VerticalAlignment="Center" Width="50" Height="26"/>
             <Label Content="Port:" HorizontalAlignment="Left" Margin="179,0,0,0" VerticalAlignment="Center" Height="26" Width="34"/>
             <Label Content="Server IP:" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Height="26" Width="59"/>

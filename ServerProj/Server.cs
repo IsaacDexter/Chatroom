@@ -346,9 +346,11 @@ namespace ServerProj
                 HandleResponse(recievedMessage, client);
                 
             }
-            // Close the client, and remove it from the dictionary
             client.Close();
             m_clients.TryRemove(index, out client);
+            // Inform the other clients that this client is leaving
+            Broadcast(new ClientLeavePacket(client.m_name));
+            // Close the client, and remove it from the dictionary
         }
 
         public void HandleResponse(Packet packet, ConnectedClient client)

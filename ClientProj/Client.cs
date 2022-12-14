@@ -27,13 +27,10 @@ namespace ClientProj
         private BinaryFormatter m_formatter;
         /// <summary>Contains a key value pair of names and associated public keys connected to those names. It is vital that these names are updated with p_clients so we don't end up with redundancies.</summary>
         private ConcurrentDictionary<string, RSAParameters> m_keys;
-        private Thread m_readThread;
 
         private MainWindow m_mainWindow;
         public Client()
         {
-            // Create a new instance of TcpClient
-            m_tcpClient = new TcpClient();
             m_keys = new ConcurrentDictionary<string, RSAParameters>();
 
             InitialiseEncryption();
@@ -41,14 +38,14 @@ namespace ClientProj
 
         #region Connecting
 
-        /// <summary>
-        /// This method will try and set up a connection to the server using a try/catch to check for errors
-        /// </summary>
+        /// <summary>This method will try and set up a connection to the server using a try/catch to check for errors</summary>
         /// <param name="ipAddress">The IP of the server to connect to, already parsed</param>
         /// <param name="port">The port to connect to, as a valid int from 1-65535</param>
-        /// <returns>Whether a </returns>
+        /// <returns>Whether the connection was successful</returns>
         public bool Connect(IPAddress ipAddress, int port)
         {
+            // Create a new instance of TcpClient
+            m_tcpClient = new TcpClient();
             try
             {
                 // Try and connect TcpClient to the remote server
@@ -68,15 +65,49 @@ namespace ClientProj
             }
         }
 
-        public void Disconnect()
+        /// <summary>Disconnect from the server, then attempts to connect to the ip anbd port specified.</summary>
+        /// <param name="ipAddress">The IP of the server to connect to, already parsed</param>
+        /// <param name="port">The port to connect to, as a valid int from 1-65535</param>
+        /// <returns>Whether the connection was successful</returns>
+        public bool Reconnect(IPAddress ipAddress, int port)
+        {
+            Disconnect();
+
+            if(Connect(ipAddress, port))
+            {
+                //Closes the ui window, to be reopened as the client reconnects
+                m_mainWindow.Close();
+                m_mainWindow = null;
+                // Run the client. Otherwise...
+                Run();
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+
+        }
+
+        /// <summary>Calls m_tcpClient.Close() and Dispose(). </summary>
+        private void Disconnect()
         {
             m_tcpClient.Close();
+            m_tcpClient.Dispose();
+        }
+
+        /// <summary>Calls when the wpf is closed. Calls disconnect then exits.</summary>
+        public void Close()
+        {
+            Disconnect();
+            Environment.Exit(0);
         }
 
         public void Run()
         {
             // Create the instance of main window
             m_mainWindow = new MainWindow(this);
+            
 
             // Create a thread that will process server response and start it
             Thread readThread = new Thread(() => { Listen(); });
@@ -116,7 +147,7 @@ namespace ClientProj
                 }
                 catch
                 {
-                    Environment.Exit(0);
+                    return;
                 }
             }
         }
@@ -189,6 +220,13 @@ namespace ClientProj
                         ClientJoinPacket newClient = (ClientJoinPacket)packet;
                         // Add the client into p_clients
                         m_mainWindow.AddClient(newClient.m_name);
+                        break;
+                    }
+                case PacketType.CLIENT_LEAVE:
+                    {
+                        ClientLeavePacket leavingClient = (ClientLeavePacket)packet;
+                        // remove the client from p_clients
+                        m_mainWindow.RemoveClient(leavingClient.m_name);
                         break;
                     }
                 case PacketType.SERVER_KEY:
